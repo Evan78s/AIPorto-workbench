@@ -27,7 +27,7 @@ function Shell() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">Aiporto<small>智港 · 客户控制台</small></div>
+        <div className="brand">Aiporto<small>智港 · 客户控制台</small><em className="slogan">万模入港，统一调度</em></div>
         <nav className="nav">
           <NavLink to="/console/overview">总览</NavLink>
           <NavLink to="/console/usage">用量曲线</NavLink>

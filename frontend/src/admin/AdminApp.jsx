@@ -68,7 +68,7 @@ function Shell() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">Aiporto<small>智港 · 内部运营后台</small></div>
+        <div className="brand">Aiporto<small>智港 · 内部运营后台</small><em className="slogan">万模入港，统一调度</em></div>
         <nav className="nav">
           <NavLink to="/admin/tenants">租户与 key</NavLink>
           <NavLink to="/admin/usage">用量看板</NavLink>
