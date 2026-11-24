@@ -4,9 +4,14 @@
 
 多租户大模型 API 网关。包含数据面网关、运营后台、客户控制台与生产部署编排。
 
-> **要安装到服务器？** 先看 **[INSTALL.md](INSTALL.md)** —— 终端一键安装与宝塔网页上传两种方式，以及装完必做的四件事，全在那一份里。
-> - 纯命令行细节 → `SERVER-INSTALL.md`
-> - 宝塔网页细节 → `BAOTA-INSTALL.md` / `宝塔面板安装手册.docx`
+> **要安装到服务器？** 先看 **[INSTALL.md](INSTALL.md)** —— 三种安装方式，以及装完必做的四件事，全在那一份里。
+> - **方式一（推荐）**：工作区根目录的 `aiporto-install.sh`，传一个文件、跑一条命令，全程不用 GitHub
+> - 方式二：终端 `git clone` + 一键脚本
+> - 方式三：宝塔网页上传 ZIP
+> - 纯命令行细节 → `SERVER-INSTALL.md`；宝塔网页细节 → `BAOTA-INSTALL.md` / `宝塔面板安装手册.docx`
+>
+> 装好之后**运行不依赖 GitHub**：镜像本地编译、数据在本地 Docker 卷。GitHub 只用于更新代码。
+> 想重新生成离线安装包：在项目目录跑 `bash scripts/build-offline.sh`。
 >
 > 发布到 GitHub 与日常更新看 `GITHUB-UPDATE.md`，部署细节看 `DEPLOYMENT.md`，设计看上级目录的 `Aiporto-Workbench-Design.md`。
 
