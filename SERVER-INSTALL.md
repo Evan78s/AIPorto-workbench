@@ -55,23 +55,23 @@ docker compose version
 
 ```bash
 cd /Users/Evan/WorkBuddy/spaces/2026_11_20_17-10-14
-tar czf aiport.tar.gz \
+tar czf aiporto.tar.gz \
   --exclude='frontend/node_modules' \
   --exclude='frontend/dist' \
   --exclude='.toolcache' \
   --exclude='.go-toolchain' \
   --exclude='.go-path' \
   --exclude='.go-cache' \
-  aiport
-scp aiport.tar.gz 用户名@服务器IP:/opt/
+  aiporto
+scp aiporto.tar.gz 用户名@服务器IP:/www/wwwroot/
 ```
 
 **然后在服务器上**：
 
 ```bash
-cd /opt
-tar xzf aiport.tar.gz
-cd aiport
+cd /www/wwwroot
+tar xzf aiporto.tar.gz
+cd aiporto
 ls
 ```
 
@@ -104,7 +104,7 @@ echo "③ ADMIN_TOTP_SECRET:"; openssl rand -base64 20 | tr -d '\n' | base32 | t
 ## 第 4 步：填写配置文件
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 cp .env.example .env
 chmod 600 .env
 nano .env
@@ -172,7 +172,7 @@ curl -fsS http://127.0.0.1:8080/metrics | head
 ### 6.1 先写入真实的厂商 API key（命令行，只做一次）
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 read -rs SEED_UPSTREAM_KEY_PLAIN && export SEED_UPSTREAM_KEY_PLAIN
 docker compose -f docker-compose.prod.yaml run --rm --entrypoint seed \
   -e SEED_UPSTREAM_KEY_PLAIN gateway \
@@ -253,7 +253,7 @@ crontab -e
 在打开的文件末尾加一行（路径按你实际安装目录改）：
 
 ```
-0 3 * * * cd /opt/aiport && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
+0 3 * * * cd /www/wwwroot/aiporto && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
 ```
 
 保存退出。之后每天凌晨 3 点自动备份，保留 30 天。恢复演练的做法见 `BACKUP-RESTORE.md`——**至少在上线前演练一次**。
@@ -295,7 +295,7 @@ sudo systemctl restart caddy
 ## 第 9 步：以后怎么升级 / 停止
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 
 # 上传新版本覆盖后，重建并启动（数据卷保留）
 docker compose -f docker-compose.prod.yaml up -d --build

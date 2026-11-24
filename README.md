@@ -34,7 +34,7 @@
 ## 目录结构
 
 ```
-aiport/
+aiporto/
 ├── cmd/
 │   ├── gateway/main.go          # 数据面服务入口
 │   └── seed/main.go             # 一次性种子：租户/key/上游/路由（明文 key 只打印一次）
@@ -70,7 +70,7 @@ aiport/
 下面是"本机已装 Go 和 Docker"时的开发流程。**服务器部署不要用这一节**，走 `SERVER-INSTALL.md`。
 
 ```bash
-cd aiport
+cd aiporto
 
 # 1. 启动依赖（Postgres 16 + Redis 7；迁移 SQL 会在 Postgres 首次启动时自动执行）
 docker compose up -d

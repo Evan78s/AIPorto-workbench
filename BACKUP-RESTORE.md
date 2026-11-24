@@ -9,7 +9,7 @@
 ```bash
 crontab -e
 # 每天 02:00 备份，日志追加到 backups/cron.log
-0 2 * * * cd /绝对路径/aiport && ./scripts/backup.sh >> backups/cron.log 2>&1
+0 2 * * * cd /绝对路径/aiporto && ./scripts/backup.sh >> backups/cron.log 2>&1
 ```
 
 先手工跑一次确认通：

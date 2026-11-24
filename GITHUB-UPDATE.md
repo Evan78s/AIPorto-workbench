@@ -12,9 +12,9 @@
 
 ```bash
 sudo apt update && sudo apt install -y git
-cd /opt
-git clone https://github.com/Evan78s/AIPorto-workbench.git aiport
-cd aiport
+cd /www/wwwroot
+git clone https://github.com/Evan78s/AIPorto-workbench.git aiporto
+cd aiporto
 ```
 
 `.env` 不会跟仓库下来（被 `.gitignore` 挡住了）。在服务器上从模板复制一份，再按 `CONFIG-CHECKLIST.md` 填真实值：
@@ -29,7 +29,7 @@ nano .env
 ## 日常更新（每次都按这个顺序）
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 
 # 1. 先备份，必做。数据库改坏了还能救回来。
 bash scripts/backup.sh
@@ -81,7 +81,7 @@ docker compose -f docker-compose.prod.yaml up -d --build
 2. 在项目目录执行：
 
 ```bash
-cd aiport
+cd aiporto
 git remote add origin https://github.com/Evan78s/AIPorto-workbench.git
 git add .
 git commit -m "Aiporto Workbench 首个版本"

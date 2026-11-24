@@ -31,7 +31,7 @@ GitHub 只在两件事上有用：**首次拿代码**、**日后 `git pull` 更�
 在你自己电脑上，项目目录里执行。先去 GitHub 网页建一个**空仓库**，仓库地址 `https://github.com/Evan78s/AIPorto-workbench.git`，**不要勾选** README、LICENSE、.gitignore（否则首次推送会冲突）。
 
 ```bash
-cd aiport
+cd aiporto
 git remote add origin https://github.com/Evan78s/AIPorto-workbench.git
 git add .
 git commit -m "Aiporto Workbench 首个版本"
@@ -61,13 +61,13 @@ git push -u origin main
 bash /root/aiporto-install.sh
 ```
 
-就这一条。脚本会自动完成：**解压源码到 `/opt/aiport` → 检查并安装 Docker → 生成 `.env` 和随机技术密钥 → 拉镜像、编译、启动全部容器 → 等待网关 healthy**。全程不访问 GitHub。
+就这一条。脚本会自动完成：**解压源码到 `/www/wwwroot/aiporto` → 检查并安装 Docker → 生成 `.env` 和随机技术密钥 → 拉镜像、编译、启动全部容器 → 等待网关 healthy**。全程不访问 GitHub。
 
 **第 3 步 · 按下面的「装完必做的四件事」配置**
 
 填管理员账号、录 TOTP、写厂商 key、建租户——这几步任何方式都省不了，因为只有你知道这些值。
 
-> 如果 `/opt/aiport` 已经有数据，脚本会**主动停止**而不是覆盖，保护你的现有配置和数据。要重装得先自己备份移走旧目录。
+> 如果 `/www/wwwroot/aiporto` 已经有数据，脚本会**主动停止**而不是覆盖，保护你的现有配置和数据。要重装得先自己备份移走旧目录。
 
 > 生成新安装包：在你自己电脑的项目目录跑 `bash scripts/build-offline.sh`。代码改了之后重新生成一次再传服务器。
 
@@ -80,7 +80,7 @@ bash /root/aiporto-install.sh
 **整段复制到服务器终端执行**（把尖括号内容换成你自己的）：
 
 ```bash
-git clone https://github.com/Evan78s/AIPorto-workbench.git /opt/aiport && cd /opt/aiport && bash install.sh
+git clone https://github.com/Evan78s/AIPorto-workbench.git /www/wwwroot/aiporto && cd /www/wwwroot/aiporto && bash install.sh
 ```
 
 这三件事 `install.sh` 会自动做完：
@@ -105,18 +105,18 @@ git clone https://github.com/Evan78s/AIPorto-workbench.git /opt/aiport && cd /op
 
 **第 2 步 · 上传到服务器**
 
-宝塔面板 → 「文件」→ 进入 `/opt` → 点「上传」→ 选中刚下载的 zip。
+宝塔面板 → 「文件」→ 进入 `/www/wwwroot` → 点「上传」→ 选中刚下载的 zip。
 
 **第 3 步 · 解压并改名**
 
-右键 zip → 「解压」。解压出来的文件夹通常叫 `AIPorto-workbench-main`，把它重命名为 `aiport`，最终路径必须是 `/opt/aiport`。
+右键 zip → 「解压」。解压出来的文件夹通常叫 `AIPorto-workbench-main`，把它重命名为 `aiporto`，最终路径必须是 `/www/wwwroot/aiporto`。
 
 **第 4 步 · 一键起服务**
 
 宝塔 → 「终端」，执行：
 
 ```bash
-cd /opt/aiport && bash install.sh
+cd /www/wwwroot/aiporto && bash install.sh
 ```
 
 脚本不依赖 git，方式二照样能用。它会自动装 Docker、生成 `.env`、起容器。
@@ -124,6 +124,8 @@ cd /opt/aiport && bash install.sh
 **第 5 步 · 建站点、配域名（网页操作）**
 
 宝塔 → 「网站」→ 建两个**纯静态站点**，都不要建数据库：
+
+> **⚠️ 项目在 `/www/wwwroot/aiporto/`（网站根目录），里面有含密钥的 `.env`。建站点时根目录一定用宝塔默认值，绝不要指向 `/www/wwwroot/aiporto/`。** 再把项目里 `nginx-deny.conf` 的内容粘贴进两个站点的「配置文件」，防万一。建完用 `https://admin.你的域名/.env` 验证，必须返回 403。详见 `BAOTA-INSTALL.md` 第 6 步。
 
 | 站点域名 | 反向代理目标 | 用途 |
 |---|---|---|
@@ -143,13 +145,13 @@ cd /opt/aiport && bash install.sh
 **1. 填后台管理员账号密码**
 
 ```bash
-nano /opt/aiport/.env
+nano /www/wwwroot/aiporto/.env
 ```
 
 找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空）。填完重启网关：
 
 ```bash
-cd /opt/aiport && docker compose -f docker-compose.prod.yaml restart gateway
+cd /www/wwwroot/aiporto && docker compose -f docker-compose.prod.yaml restart gateway
 ```
 
 **2. 把 TOTP 私钥录进验证器**
@@ -159,7 +161,7 @@ cd /opt/aiport && docker compose -f docker-compose.prod.yaml restart gateway
 **3. 写入你自己的厂商 key**
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 SEED_UPSTREAM_KEY_PLAIN='你的厂商key' go run ./cmd/seed \
   -tenant-name '<你的租户名>' \
   -provider-code <厂商代号> \
@@ -179,7 +181,7 @@ SEED_UPSTREAM_KEY_PLAIN='你的厂商key' go run ./cmd/seed \
 ## 装完怎么验证
 
 ```bash
-cd /opt/aiport
+cd /www/wwwroot/aiporto
 docker compose -f docker-compose.prod.yaml ps          # 所有服务都是 healthy
 curl http://127.0.0.1:8080/healthz                     # 返回 ok
 ```

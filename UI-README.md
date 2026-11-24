@@ -78,7 +78,7 @@
 1. 完成 `CONFIG-CHECKLIST.md`，确保项目根目录有填好的 `.env`。
 2. 启动数据库和 Redis：
    ```bash
-   cd aiport
+   cd aiporto
    docker compose up -d
    ```
    老数据卷还要补三个迁移，命令见 `DEPLOYMENT.md` 第 6 节。
@@ -89,7 +89,7 @@
    看到 `aiporto listening on :8080` 即成功。
 4. 新开一个终端，初始化前端依赖（只需一次）：
    ```bash
-   cd aiport/frontend
+   cd aiporto/frontend
    npm install
    ```
 5. 启动界面：

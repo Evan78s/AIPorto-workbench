@@ -11,7 +11,7 @@
 ## 1. 只填你自己的值
 
 ```bash
-cd aiport
+cd aiporto
 cp .env.example .env
 chmod 600 .env
 ```
