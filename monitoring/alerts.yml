@@ -1,0 +1,43 @@
+groups:
+  - name: aiporto
+    rules:
+      - alert: GatewayHighP95Latency
+        expr: |
+          histogram_quantile(0.95, rate(wb_request_duration_ms_bucket[5m])) > 150
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "网关端到端 p95 延迟超过 150ms"
+          description: "持续 5 分钟超过阈值，检查上游响应与本机负载。"
+
+      - alert: GatewayHigh429Rate
+        expr: |
+          rate(wb_quota_rejected_total[5m]) / clamp_min(rate(wb_requests_total[5m]), 1) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "429 比例超过 5%"
+          description: "检查租户额度/限流设置是否被撞穿，或是否存在异常调用方。"
+
+      - alert: UpstreamFailureSpike
+        expr: rate(wb_upstream_failures_total[5m]) > 1
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "上游失败/重试次数异常"
+          description: "检查上游 provider 状态与 key 有效性。"
+
+      - alert: QuotaServiceError
+        expr: rate(wb_quota_errors_total[5m]) > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Redis 额度服务报错"
+          description: "额度预扣不可用会导致 503，需要立即检查 Redis。"
+
+      - alert: GatewayDown
+        expr: up{job="gateway"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "网关指标抓取失败"

@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: gateway
+    static_configs:
+      - targets: ["gateway:8080"]
+    metrics_path: /metrics
+
+  # 主机、CPU、磁盘、网络由 node-exporter 提供；
+  # Postgres/Redis 的可用性通过网关 /readyz 与 node-exporter 综合判断，
+  # 避免抓取不存在 exporter 的端口造成误报。
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

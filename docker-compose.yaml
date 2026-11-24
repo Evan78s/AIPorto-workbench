@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-replace_db}
+      POSTGRES_USER: ${POSTGRES_USER:-replace_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-replace_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/001_mvp.sql:/docker-entrypoint-initdb.d/001_mvp.sql:ro
+      - ./migrations/002_console.sql:/docker-entrypoint-initdb.d/002_console.sql:ro
+      - ./migrations/003_audit_2fa.sql:/docker-entrypoint-initdb.d/003_audit_2fa.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

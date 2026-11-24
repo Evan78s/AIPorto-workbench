@@ -1,0 +1,27 @@
+# ===== 绝不能提交的敏感文件 =====
+# 真实配置（含密钥、数据库密码）只留在服务器上
+.env
+.env.*
+!.env.example
+# 任何形式的私钥、证书、记录明文 key 的文件
+*.key
+*.pem
+*.p12
+seed*.txt
+keys*.txt
+secrets*
+
+# ===== 依赖与构建产物（服务器上自动重建） =====
+frontend/node_modules/
+frontend/dist/
+.toolcache/
+
+# ===== 备份与日志（含业务数据） =====
+backups/
+*.dump
+*.sql.gz
+*.log
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db

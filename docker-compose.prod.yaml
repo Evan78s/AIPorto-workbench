@@ -1,0 +1,118 @@
+# 生产编排：网关 + PostgreSQL + Redis + 管理后台 + Prometheus + 主机指标。
+# 使用：docker compose -f docker-compose.prod.yaml up -d --build
+# 所有凭据来自同目录的 .env（.env.example 是模板，不要填真实值进模板）。
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"   # 每个容器最多保留 5 × 10MB 日志，避免写满磁盘
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/001_mvp.sql:/docker-entrypoint-initdb.d/001_mvp.sql:ro
+      - ./migrations/002_console.sql:/docker-entrypoint-initdb.d/002_console.sql:ro
+      - ./migrations/003_audit_2fa.sql:/docker-entrypoint-initdb.d/003_audit_2fa.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging: *default-logging
+    networks: [backend]
+
+  gateway:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # 容器网络内用服务名访问；.env 里的 127.0.0.1 不适用于容器。
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      REDIS_ADDR: redis:6379
+      GATEWAY_LISTEN_ADDR: :8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    networks: [backend]
+
+  admin-ui:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    logging: *default-logging
+    networks: [backend]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "9090:9090"
+    logging: *default-logging
+    networks: [backend]
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command: ["--path.procfs=/host/proc", "--path.rootfs=/host"]
+    volumes:
+      - /proc:/host/proc:ro
+      - /:/host:ro,rslave
+    logging: *default-logging
+    networks: [backend]
+
+volumes:
+  pgdata:
+  redisdata:
+  promdata:
+
+networks:
+  backend:
+    driver: bridge
