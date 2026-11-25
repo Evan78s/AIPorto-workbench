@@ -59,12 +59,12 @@ tar czf aiporto.tar.gz \
 
 1. 左侧「文件」→ 进入 `/www/wwwroot` 目录。
 2. 点「上传」，把 `aiporto.tar.gz` 传上去。
-3. 右键这个文件 →「解压」，得到 `/www/wwwroot/aiporto`。
+3. 右键这个文件 →「解压」，得到 `/www/wwwroot/aiporto.net`。
 
 回到「终端」确认：
 
 ```bash
-cd /www/wwwroot/aiporto && ls
+cd /www/wwwroot/aiporto.net && ls
 ```
 
 能看到 `docker-compose.prod.yaml`、`migrations/`、`frontend/` 就对了。
@@ -90,12 +90,12 @@ echo "③ ADMIN_TOTP_SECRET:"; openssl rand -base64 20 | tr -d '\n' | base32 | t
 宝塔「终端」：
 
 ```bash
-cd /www/wwwroot/aiporto
+cd /www/wwwroot/aiporto.net
 cp .env.example .env
 chmod 600 .env
 ```
 
-然后在宝塔「文件」里找到 `/www/wwwroot/aiporto/.env`，双击用编辑器打开，按 `CONFIG-CHECKLIST.md` 的表格填。要点：
+然后在宝塔「文件」里找到 `/www/wwwroot/aiporto.net/.env`，双击用编辑器打开，按 `CONFIG-CHECKLIST.md` 的表格填。要点：
 
 - `POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`：自己定
 - `API_KEY_PEPPER_B64`：填上面的 ①
@@ -112,7 +112,7 @@ chmod 600 .env
 在宝塔「终端」执行：
 
 ```bash
-cd /www/wwwroot/aiporto
+cd /www/wwwroot/aiporto.net
 docker compose -f docker-compose.prod.yaml up -d --build
 docker compose -f docker-compose.prod.yaml ps
 ```
@@ -136,11 +136,11 @@ curl -fsS http://127.0.0.1:8080/readyz
 
 这一步才是你熟悉的"宝塔开网站"，但它只做指路。
 
-> **⚠️ 安全红线（项目现在放在 `/www/wwwroot/aiporto/`，是网站根目录）**
+> **⚠️ 安全红线（项目现在放在 `/www/wwwroot/aiporto.net/`，是网站根目录）**
 >
 > 项目目录里有个 `.env`，装着数据库密码、加密主密钥、TOTP 私钥。它绝对不能被浏览器直接下载。
 >
-> **建站点时，根目录必须用宝塔的默认值（每个域名自己的目录），千万不要指向 `/www/wwwroot/aiporto/`。** 站点只做反向代理，不托管项目文件。
+> **建站点时，根目录必须用宝塔的默认值（每个域名自己的目录），千万不要指向 `/www/wwwroot/aiporto.net/`。** 站点只做反向代理，不托管项目文件。
 >
 > 另外给两个站点都加一份兜底防护：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即使站点根目录设错也不会泄露。
 >
@@ -198,13 +198,13 @@ proxy_read_timeout 600s;
 - 脚本内容：
 
 ```bash
-cd /www/wwwroot/aiporto && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
+cd /www/wwwroot/aiporto.net && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
 ```
 
 升级时：重新上传新的 tar.gz 覆盖解压，然后在终端执行：
 
 ```bash
-cd /www/wwwroot/aiporto
+cd /www/wwwroot/aiporto.net
 docker compose -f docker-compose.prod.yaml up -d --build
 ```
 

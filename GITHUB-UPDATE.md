@@ -29,7 +29,7 @@ nano .env
 ## 日常更新（每次都按这个顺序）
 
 ```bash
-cd /www/wwwroot/aiporto
+cd /www/wwwroot/aiporto.net
 
 # 1. 先备份，必做。数据库改坏了还能救回来。
 bash scripts/backup.sh

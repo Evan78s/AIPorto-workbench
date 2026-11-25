@@ -87,7 +87,7 @@ bash /root/aiporto-install.sh
 
 就这一条。脚本会自动做完全部重活：
 
-- 解压源码到 `/www/wwwroot/aiporto`（这就是"下载到网站目录"）
+- 解压源码到 `/www/wwwroot/aiporto.net`（这就是"下载到网站目录"）
 - 检查并安装 Docker（已配置阿里云镜像加速）
 - 生成 `.env` 和随机技术密钥（数据库密码、加密主密钥、TOTP 私钥）
 - 拉镜像、编译、启动网关 + PostgreSQL + Redis + 前端 + 监控全部容器（这就是"装 Docker 容器"）
@@ -124,7 +124,7 @@ bash /root/aiporto-install.sh
 
 不管哪种安装方式，这四件都得你亲自做，因为只有你知道这些值。详细命令在 `INSTALL.md` 的「装完必做的四件事」一节：
 
-1. **填管理员账号密码**：编辑 `/www/wwwroot/aiporto/.env` 里的 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填完 `docker compose -f docker-compose.prod.yaml restart gateway`。
+1. **填管理员账号密码**：编辑 `/www/wwwroot/aiporto.net/.env` 里的 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填完 `docker compose -f docker-compose.prod.yaml restart gateway`。
 2. **录 TOTP 验证器**：用 Aegis / FreeOTP 录第 4 步打印的 TOTP 私钥，登录后台要密码 + 6 位动态码。
 3. **写入厂商 API key**：用 `seed` 命令把你的 DeepSeek/阿里百炼等真实 key 加密入库。**本文档不提供任何 key。**
 4. **建套餐、建租户、签发客户 key**：登录 `https://admin.你的域名/admin` 操作，客户 key 只在签发那一刻明文显示一次。
@@ -134,7 +134,7 @@ bash /root/aiporto-install.sh
 ## 第 7 步：验证通了
 
 ```bash
-cd /www/wwwroot/aiporto
+cd /www/wwwroot/aiporto.net
 docker compose -f docker-compose.prod.yaml ps          # STATUS 全是 healthy
 curl http://127.0.0.1:8080/healthz                     # 返回 ok
 ```
