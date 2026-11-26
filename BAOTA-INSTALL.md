@@ -15,7 +15,7 @@
 - **Docker 负责**：跑网关、数据库、Redis、前端。
 - **宝塔的"网站"功能**：只用来把域名反向代理到已经跑起来的服务上，**网站根目录是空的，不要把项目文件传进去**。
 
-如果只把文件丢进 `/www/wwwroot/xxx` 然后点"建网站"，页面可能能打开一个空壳，但网关、数据库、限流全部不会工作。
+如果只把文件丢进某个网站目录然后点"建网站"，页面可能能打开一个空壳，但网关、数据库、限流全部不会工作。
 
 下面按顺序做。命令行部分都在宝塔的「终端」里执行（面板左侧菜单找「终端」或「SSH 终端」）。
 
@@ -57,14 +57,14 @@ tar czf aiporto.tar.gz \
 
 在宝塔里：
 
-1. 左侧「文件」→ 进入 `/www/wwwroot` 目录。
+1. 左侧「文件」→ 进入 `/www/docker` 目录（若不存在，先在宝塔文件管理器里新建这个目录）。
 2. 点「上传」，把 `aiporto.tar.gz` 传上去。
-3. 右键这个文件 →「解压」，得到 `/www/wwwroot/aiporto.net`。
+3. 右键这个文件 →「解压」，得到 `/www/docker/aiporto`。
 
 回到「终端」确认：
 
 ```bash
-cd /www/wwwroot/aiporto.net && ls
+cd /www/docker/aiporto && ls
 ```
 
 能看到 `docker-compose.prod.yaml`、`migrations/`、`frontend/` 就对了。
@@ -90,12 +90,12 @@ echo "③ ADMIN_TOTP_SECRET:"; openssl rand -base64 20 | tr -d '\n' | base32 | t
 宝塔「终端」：
 
 ```bash
-cd /www/wwwroot/aiporto.net
+cd /www/docker/aiporto
 cp .env.example .env
 chmod 600 .env
 ```
 
-然后在宝塔「文件」里找到 `/www/wwwroot/aiporto.net/.env`，双击用编辑器打开，按 `CONFIG-CHECKLIST.md` 的表格填。要点：
+然后在宝塔「文件」里找到 `/www/docker/aiporto/.env`，双击用编辑器打开，按 `CONFIG-CHECKLIST.md` 的表格填。要点：
 
 - `POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`：自己定
 - `API_KEY_PEPPER_B64`：填上面的 ①
@@ -112,7 +112,7 @@ chmod 600 .env
 在宝塔「终端」执行：
 
 ```bash
-cd /www/wwwroot/aiporto.net
+cd /www/docker/aiporto
 docker compose -f docker-compose.prod.yaml up -d --build
 docker compose -f docker-compose.prod.yaml ps
 ```
@@ -136,15 +136,15 @@ curl -fsS http://127.0.0.1:8080/readyz
 
 这一步才是你熟悉的"宝塔开网站"，但它只做指路。
 
-> **⚠️ 安全红线（项目现在放在 `/www/wwwroot/aiporto.net/`，是网站根目录）**
+> **⚠️ 安全红线（项目放在 `/www/docker/aiporto/`，不在网站根目录）**
 >
 > 项目目录里有个 `.env`，装着数据库密码、加密主密钥、TOTP 私钥。它绝对不能被浏览器直接下载。
 >
-> **建站点时，根目录必须用宝塔的默认值（每个域名自己的目录），千万不要指向 `/www/wwwroot/aiporto.net/`。** 站点只做反向代理，不托管项目文件。
+> 把代码放在 `/www/docker/` 而不是 `/www/wwwroot/`，已经避开最常见的泄露路径——nginx 不会去网站根目录之外找文件。但仍要注意：**建站点时根目录用宝塔默认值（每个域名自己的目录），千万不要指向 `/www/docker/aiporto/`，也不要为它单独建任何站点映射。** 站点只做反向代理，不托管项目文件。
 >
-> 另外给两个站点都加一份兜底防护：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即使站点根目录设错也不会泄露。
+> 另外给两个站点都加一份兜底防护：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即便将来有人误把站点根目录设到项目目录也不会泄露。
 >
-> 验证：浏览器打开 `https://admin.你的域名/.env`，必须返回 **403**。返回文件内容就说明配置没生效，立刻停掉站点来排查。
+> 验证：浏览器打开 `https://admin.你的域名/.env`，必须返回 **403**。返回文件内容就说明配置出了问题，立刻停掉站点来排查。
 
 ### 6.1 管理后台 + 客户控制台
 
@@ -198,13 +198,13 @@ proxy_read_timeout 600s;
 - 脚本内容：
 
 ```bash
-cd /www/wwwroot/aiporto.net && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
+cd /www/docker/aiporto && ./scripts/backup.sh >> /var/log/wb-backup.log 2>&1
 ```
 
 升级时：重新上传新的 tar.gz 覆盖解压，然后在终端执行：
 
 ```bash
-cd /www/wwwroot/aiporto.net
+cd /www/docker/aiporto
 docker compose -f docker-compose.prod.yaml up -d --build
 ```
 

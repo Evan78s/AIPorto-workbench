@@ -12,7 +12,7 @@
 
 ```bash
 sudo apt update && sudo apt install -y git
-cd /www/wwwroot
+mkdir -p /www/docker && cd /www/docker
 git clone https://github.com/Evan78s/AIPorto-workbench.git aiporto
 cd aiporto
 ```
@@ -29,7 +29,7 @@ nano .env
 ## 日常更新（每次都按这个顺序）
 
 ```bash
-cd /www/wwwroot/aiporto.net
+cd /www/docker/aiporto
 
 # 1. 先备份，必做。数据库改坏了还能救回来。
 bash scripts/backup.sh

@@ -22,18 +22,18 @@ fi
 
 # 1. 准备暂存目录
 rm -rf "$STAGE"
-mkdir -p "$STAGE/aiporto.net"
+mkdir -p "$STAGE/aiporto"
 cd "$ROOT"
-git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$STAGE/aiporto.net"
+git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$STAGE/aiporto"
 
 # 2. 核对包内没有敏感文件
-BAD="$(find "$STAGE/aiporto.net" -type f \( -name '.env' -o -name '*.key' -o -name '*.pem' -o -name 'seed*.txt' -o -name '*.gz' \) -print)"
+BAD="$(find "$STAGE/aiporto" -type f \( -name '.env' -o -name '*.key' -o -name '*.pem' -o -name 'seed*.txt' -o -name '*.gz' \) -print)"
 if [ -n "$BAD" ]; then echo "错误：包内出现敏感文件："; echo "$BAD"; exit 1; fi
 
-echo "包内文件数：$(find "$STAGE/aiporto.net" -type f | wc -l | tr -d ' ')"
+echo "包内文件数：$(find "$STAGE/aiporto" -type f | wc -l | tr -d ' ')"
 
 # 3. 压缩并 base64 编码
-tar -czf "$STAGE/payload.tar.gz" -C "$STAGE" aiporto.net
+tar -czf "$STAGE/payload.tar.gz" -C "$STAGE" aiporto
 B64="$(base64 < "$STAGE/payload.tar.gz" | tr -d '\n')"
 echo "压缩后大小：$(du -h "$STAGE/payload.tar.gz" | cut -f1)"
 
@@ -45,7 +45,7 @@ cat > "$OUT" <<'HEADER'
 # 说明：源码已内嵌，全程不访问 GitHub。只会从 Docker Hub 拉基础镜像。
 set -euo pipefail
 
-INSTALL_DIR=/www/wwwroot/aiporto.net
+INSTALL_DIR=/www/docker/aiporto
 MARKER='__AIPORTO_ARCHIVE__'
 SELF="$0"
 

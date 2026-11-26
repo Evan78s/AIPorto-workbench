@@ -4,7 +4,7 @@
 
 这份是专门给"用阿里云 ECS"写的。核心结论先放这儿：
 
-**安装只需要一条命令。** 你担心的"下载到网站目录"和"装 Docker 容器"是一件事——一键脚本会同时做完。真正需要你在**阿里云网页控制台**手动做的只有三件：**买服务器、放行端口（安全组）、解析域名**。这三件脚本碰不到，其余全部交给脚本。
+**安装只需要一条命令。** 你担心的"下载源码到服务器"和"装 Docker 容器"是一件事——一键脚本会同时做完。真正需要你在**阿里云网页控制台**手动做的只有三件：**买服务器、放行端口（安全组）、解析域名**。这三件脚本碰不到，其余全部交给脚本。
 
 最容易卡住的是**安全组**：服务器系统里放行端口还不够，阿里云控制台还有一层"安全组"也要放行，两层都通了公网才能访问。
 
@@ -80,12 +80,12 @@ ssh root@你的服务器IP
 在服务器的 SSH 窗口，把下面整段粘进去执行：
 
 ```bash
-mkdir -p /www/wwwroot && \
-git clone https://github.com/Evan78s/AIPorto-workbench.git /www/wwwroot/aiporto.net && \
-cd /www/wwwroot/aiporto.net && bash install.sh
+mkdir -p /www/docker && \
+git clone https://github.com/Evan78s/AIPorto-workbench.git /www/docker/aiporto && \
+cd /www/docker/aiporto && bash install.sh
 ```
 
-一条龙做完：建目录 → 从 GitHub 拉取源码到 `/www/wwwroot/aiporto.net` → 执行一键安装。
+一条龙做完：建目录 → 从 GitHub 拉取源码到 `/www/docker/aiporto` → 执行一键安装。
 
 > 若提示 `git: command not found`，先装 git 再重跑：`sudo apt-get update -y && sudo apt-get install -y git`。
 
@@ -103,11 +103,11 @@ scp /Users/Evan/WorkBuddy/spaces/2026_11_20_17-10-14/aiporto-install.sh root@你
 bash /root/aiporto-install.sh
 ```
 
-脚本自动解压源码到 `/www/wwwroot/aiporto.net` 并完成安装，全程不访问 GitHub。也可以用宝塔传这个文件：宝塔「文件」→ 进 `/root/` → 上传 → 再在「终端」执行上面那条命令，效果一样。
+脚本自动解压源码到 `/www/docker/aiporto` 并完成安装，全程不访问 GitHub。也可以用宝塔传这个文件：宝塔「文件」→ 进 `/root/` → 上传 → 再在「终端」执行上面那条命令，效果一样。
 
 ### 两种方式都会自动做完的重活
 
-- 把源码放到 `/www/wwwroot/aiporto.net`（这就是"下载到网站目录"）
+- 把源码放到 `/www/docker/aiporto`（这就是"下载源码到服务器"）
 - 检查并安装 Docker（已配置阿里云镜像加速）
 - 生成 `.env` 和随机技术密钥（数据库密码、加密主密钥、TOTP 私钥）
 - 拉镜像、编译、启动网关 + PostgreSQL + Redis + 前端 + 监控全部容器（这就是"装 Docker 容器"）
@@ -123,7 +123,7 @@ bash /root/aiporto-install.sh
 
 代码和容器已经在跑了，但外部还访问不到——因为没人告诉网络"哪个域名对应哪个服务"。这一步就是在宝塔里建两个站点，把域名指到已经跑起来的服务上。
 
-> 先理清一个容易绕晕的点：**宝塔的"网站"只负责给域名指路（反向代理），网站目录是空的，不要把项目文件传进去。** 项目已经在 `/www/wwwroot/aiporto.net/` 由 Docker 跑着了，跟宝塔站点目录是两码事。
+> 先理清一个容易绕晕的点：**宝塔的"网站"只负责给域名指路（反向代理），网站目录是空的，不要把项目文件传进去。** 项目已经在 `/www/docker/aiporto/` 由 Docker 跑着了，跟宝塔站点目录是两码事。
 
 ### 5.0 先装宝塔（服务器上还没装的话）
 
@@ -149,7 +149,7 @@ bash /root/aiporto-install.sh
 1. 宝塔面板 → 左侧「网站」→「添加站点」。
 2. 按下面填：
    - **域名**：`admin.你的域名`
-   - **根目录**：用宝塔的默认值，**不要动，更不要改成 `/www/wwwroot/aiporto.net/`**（见下方安全红线）
+   - **根目录**：用宝塔的默认值，**不要动**——Docker 部署目录 `/www/docker/aiporto/` 不归任何站点托管（见下方安全红线）
    - **数据库**：选「不创建」
    - **PHP 版本**：选「纯静态」
 3. 确定后，点这个站点 →「反向代理」→「添加反向代理」：
@@ -174,13 +174,13 @@ proxy_read_timeout 600s;
 
 ### 5.4 安全红线（不可跳过）
 
-> **⚠️ 项目在 `/www/wwwroot/aiporto.net/`（网站根目录），里面有含密钥的 `.env`（数据库密码、加密主密钥、TOTP 私钥）。它绝对不能被浏览器直接下载。**
+> **⚠️ 项目在 `/www/docker/aiporto/`——这是 Docker 的部署目录，不属于任何网站根目录。里面有含密钥的 `.env`（数据库密码、加密主密钥、TOTP 私钥），绝不能被浏览器直接下载。**
 
-三件事必须做：
+把代码挪到网站根目录之外，本身就是最有效的一层防护：nginx 根本不会去 `/www/docker/` 里找文件，`.env` 天然就不是一个可通过域名访问的 URL。但仍然要做两件事兜底：
 
-1. **站点根目录用宝塔默认值**，绝不要指向 `/www/wwwroot/aiporto.net/`。站点只做反向代理，不托管项目文件。
-2. **给两个站点都加兜底防护**：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等路径的直接访问，即使根目录设错也不会泄露。
-3. **验证**：浏览器打开 `https://admin.你的域名/.env`，必须返回 **403**。返回了文件内容就说明配置没生效，**立刻停掉站点排查**，不要继续。
+1. **不要为 `/www/docker/aiporto/` 单独建任何网站或站点目录映射**。宝塔的两个站点只做反向代理，根目录用默认值，绝不要指向项目目录——一旦指向，等于把 `.env` 放到了公网路径下。
+2. **给两个站点都加一份兜底防护**：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即便将来有人误把站点根目录设到项目目录，也不会泄露。
+3. **验证**：浏览器打开 `https://admin.你的域名/.env`，必须返回 **403**。返回了文件内容就说明配置出了问题，**立刻停掉站点排查**，不要继续。
 
 ### 5.5 防火墙 / 安全组收口
 
@@ -192,7 +192,7 @@ proxy_read_timeout 600s;
 
 不管哪种安装方式，这四件都得你亲自做，因为只有你知道这些值。详细命令在 `INSTALL.md` 的「装完必做的四件事」一节：
 
-1. **填管理员账号密码**：编辑 `/www/wwwroot/aiporto.net/.env` 里的 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填完 `docker compose -f docker-compose.prod.yaml restart gateway`。
+1. **填管理员账号密码**：编辑 `/www/docker/aiporto/.env` 里的 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填完 `docker compose -f docker-compose.prod.yaml restart gateway`。
 2. **录 TOTP 验证器**：用 Aegis / FreeOTP 录第 4 步打印的 TOTP 私钥，登录后台要密码 + 6 位动态码。
 3. **写入厂商 API key**：用 `seed` 命令把你的 DeepSeek/阿里百炼等真实 key 加密入库。**本文档不提供任何 key。**
 4. **建套餐、建租户、签发客户 key**：登录 `https://admin.你的域名/admin` 操作，客户 key 只在签发那一刻明文显示一次。
@@ -202,7 +202,7 @@ proxy_read_timeout 600s;
 ## 第 7 步：验证通了
 
 ```bash
-cd /www/wwwroot/aiporto.net
+cd /www/docker/aiporto
 docker compose -f docker-compose.prod.yaml ps          # STATUS 全是 healthy
 curl http://127.0.0.1:8080/healthz                     # 返回 ok
 ```

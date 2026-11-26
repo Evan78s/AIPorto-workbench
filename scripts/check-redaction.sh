@@ -42,7 +42,7 @@ check "管理后台已移除 Basic Auth" \
 check "网站根目录兜底防护配置存在且被文档引用" \
   bash -c 'test -s nginx-deny.conf && grep -q "deny all" nginx-deny.conf && grep -q "nginx-deny.conf" BAOTA-INSTALL.md && grep -q "nginx-deny.conf" INSTALL.md'
 
-check "安装路径统一为 /www/wwwroot/aiporto.net" \
+check "安装路径统一为 /www/docker/aiporto" \
   bash -c '! grep -Rqn "/opt/aip""ort" --include="*.md" --include="*.sh" --include="*.yaml" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.toolcache --exclude-dir=dist'
 
 rm -f ./.toolcache/redaction-hits
