@@ -89,7 +89,8 @@ func New(pg *pgxpool.Pool, cfg config.Config) *API {
 	}
 }
 
-func (a *API) Mount(r chi.Router) {
+// Mount 挂载管理/控制台 API。extra 用于在管理员双因素鉴权组内追加路由（如用户端订单管理）。
+func (a *API) Mount(r chi.Router, extra ...func(chi.Router)) {
 	r.Route("/api/admin", func(r chi.Router) {
 		// 审计在最外层：鉴权失败的写尝试同样留痕。
 		r.Use(a.auditWrite)
@@ -122,6 +123,11 @@ func (a *API) Mount(r chi.Router) {
 			r.Post("/routes", a.createRoute)
 			r.Put("/routes/{id}", a.updateRoute)
 			r.Delete("/routes/{id}", a.deleteRoute)
+			for _, fn := range extra {
+				if fn != nil {
+					fn(r)
+				}
+			}
 		})
 	})
 	r.Route("/api/console", func(r chi.Router) {

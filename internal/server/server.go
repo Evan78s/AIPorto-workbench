@@ -7,9 +7,12 @@ import (
 
 	"aiporto/internal/config"
 	"aiporto/internal/consoleapi"
+	"aiporto/internal/mailer"
 	"aiporto/internal/metrics"
+	"aiporto/internal/payment"
 	"aiporto/internal/proxy"
 	"aiporto/internal/store"
+	"aiporto/internal/userapi"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -80,7 +83,18 @@ func New(addr string, h *proxy.Handler, st *store.Store, cfg config.Config) *htt
 
 	r.HandleFunc("/v1/*", h.ServeHTTP)
 
-	consoleapi.New(st.PG, cfg).Mount(r)
+	// B 方案：用户端与支付。邮件未配置时 mailer 为 nil，注册接口返回 503 提示。
+	mail := mailer.New(mailer.Config{
+		Host: cfg.SMTPHost, Port: cfg.SMTPPort, User: cfg.SMTPUser,
+		Pass: cfg.SMTPPass, From: cfg.SMTPFrom, TLS: cfg.SMTPTLS,
+	})
+	providers := payment.New(cfg)
+	userAPI := userapi.New(st.PG, cfg, mail, providers)
+
+	consoleAPI := consoleapi.New(st.PG, cfg)
+	// 后台订单管理复用管理员双因素鉴权，作为额外路由注入。
+	consoleAPI.Mount(r, userAPI.RegisterAdminRoutes)
+	userAPI.Mount(r)
 
 	return &http.Server{
 		Addr:              addr,

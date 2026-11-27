@@ -12,6 +12,7 @@ services:
       - ./migrations/001_mvp.sql:/docker-entrypoint-initdb.d/001_mvp.sql:ro
       - ./migrations/002_console.sql:/docker-entrypoint-initdb.d/002_console.sql:ro
       - ./migrations/003_audit_2fa.sql:/docker-entrypoint-initdb.d/003_audit_2fa.sql:ro
+      - ./migrations/004_user_portal.sql:/docker-entrypoint-initdb.d/004_user_portal.sql:ro
 
   redis:
     image: redis:7-alpine

@@ -31,6 +31,7 @@
 | `/console/keys` | API key | 列表、停用、重建（明文只显示一次） |
 | `/console/billing` | 充值与账单 | 充值记录、用量 CSV / 账单 CSV 下载 |
 | `/console/snippets` | 调用示例 | curl / Python 示例，占位符不替换成真实 key |
+| （用户端独立站点 `frontend-user`） | 首页/注册/登录/套餐/订单 | 见 `USER-PORTAL.md`，独立域名 `user.aiporto.net`，端口 8082 |
 
 ### 后端接口清单
 
@@ -57,6 +58,37 @@
 | DELETE | `/api/admin/provider-keys/{id}` | 停用厂商 key |
 | GET / POST | `/api/admin/routes` | 路由列表 / 新增路由 |
 | PUT / DELETE | `/api/admin/routes/{id}` | 修改路由（厂商/模型/优先级/启停）/ 删除路由 |
+
+用户端公开接口（无需鉴权）：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| POST | `/api/user/register` | 发邮箱验证码（密码 bcrypt 哈希，验证码只存摘要） |
+| POST | `/api/user/verify` | 核对验证码，创建用户+租户+会话，返回一次性会话令牌 |
+| POST | `/api/user/login` | 邮箱密码登录 |
+| GET | `/api/user/plans` | 可售套餐列表 |
+| GET | `/api/user/pay/channels` | 当前启用的支付渠道 |
+| POST | `/api/user/pay/alipay/notify` | 支付宝异步回调（RSA2 验签 + 金额比对 + 幂等） |
+| POST | `/api/user/pay/wechat/notify` | 微信 v3 回调（平台公钥验签 + AES-GCM 解密） |
+
+用户端登录后（`Authorization: Bearer us-...`）：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| POST | `/api/user/logout` | 登出 |
+| GET | `/api/user/me` | 当前用户与套餐 |
+| POST | `/api/user/orders` | 下单（金额从套餐表读取，不接受前端传入） |
+| GET | `/api/user/orders` | 我的订单 |
+| GET | `/api/user/orders/{order_no}` | 订单详情（含支付二维码/转账信息） |
+| POST | `/api/user/orders/{order_no}/cancel` | 取消待支付订单 |
+| POST | `/api/user/orders/{order_no}/credentials` | 领取一次性明文 API Key 与控制台令牌 |
+
+运营后台新增（复用双因素鉴权）：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/api/admin/user-orders` | 用户端订单列表 |
+| POST | `/api/admin/user-orders/{order_no}/confirm` | 对公转账收款确认并开通 |
 
 客户控制台（全部需要 `Authorization: Bearer cw-...`）：
 

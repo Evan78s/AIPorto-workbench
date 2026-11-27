@@ -14,6 +14,8 @@ secrets*
 # ===== 依赖与构建产物（服务器上自动重建） =====
 frontend/node_modules/
 frontend/dist/
+frontend-user/node_modules/
+frontend-user/dist/
 .toolcache/
 # 离线安装包由 scripts/build-offline.sh 生成，不入库
 aiporto-install.sh

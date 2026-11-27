@@ -30,9 +30,10 @@
 **运营后台 `/admin`**：租户与 key、**厂商管理、模型路由管理**、套餐与价格、用量看板、账本与手动充值、三类异常告警；密码 + TOTP 双因素登录，所有写操作进 `audit_logs`。
 > 厂商 API key 可直接在后台「厂商管理」页填写，经 AES-256-GCM 加密入库，页面只显示掩码、无法再次查看明文——无需再用 seed 命令写入上游 key。seed 命令仍可用于快速初始化演示数据。
 **客户控制台 `/console`**：本月用量与余额、按模型/按天曲线、key 停用与重建、充值记录与脱敏 CSV 下载、调用示例；所有查询强制带租户过滤。
+**用户端 `user.aiporto.net`（B 方案）**：邮箱注册与验证、密码登录、套餐浏览、支付宝/微信/对公转账下单、支付回调自动开通 API Key 与控制台令牌；完整手册见 `USER-PORTAL.md`。
 **生产配套**：Docker Compose 全套编排、健康检查、日志轮转、备份/恢复/演练脚本、Prometheus 指标与告警、200 并发 SSE 压测工具、20 条上线验收清单。
 
-明确不做：前端账号体系自助注册（后台签发）、支付渠道对接、多区域部署。
+明确不做：多区域部署。（用户自助注册与支付渠道已实现，见 `USER-PORTAL.md`、`PAYMENT-SETUP.md`、`SMTP-SETUP.md`。）
 
 ## 目录结构
 
@@ -52,9 +53,13 @@ aiporto/
 │   ├── proxy/proxy.go           # 转发、SSE 透传、重试、token 统计
 │   └── server/server.go         # chi 路由、健康检查
 │   ├── consoleapi/              # 管理后台 + 控制台 API、双因素、审计
+│   ├── userapi/                 # B 方案：注册/登录/订单/支付回调/自动开通
+│   ├── mailer/                  # SMTP 验证码邮件（标准库）
+│   ├── payment/                 # 支付宝 RSA2 / 微信 v3 / 对公转账
 │   └── metrics/                 # /metrics 监控指标
 ├── frontend/                    # React 后台 + 控制台（Vite）
-├── migrations/                  # 001 网关 / 002 控制台 / 003 审计+双因素
+├── frontend-user/               # React 用户端网站（Vite，独立端口 8082）
+├── migrations/                  # 001 网关 / 002 控制台 / 003 审计+双因素 / 004 用户端
 ├── monitoring/                  # Prometheus 抓取与告警规则
 ├── scripts/                     # 备份、恢复、恢复演练、脱敏自检、mock 上游、压测
 ├── docker-compose.yaml          # 本地开发：Postgres + Redis
@@ -63,6 +68,9 @@ aiporto/
 ├── SERVER-INSTALL.md            # ★ 服务器安装手册（新手走这份）
 ├── DEPLOYMENT.md                # 生产部署细节
 ├── UI-README.md                 # 两个界面的路由与接口清单
+├── USER-PORTAL.md               # ★ 用户端部署与购买流程（B 方案）
+├── PAYMENT-SETUP.md             # 支付宝/微信申请与密钥配置
+├── SMTP-SETUP.md                # 邮件验证码配置
 ├── CONFIG-CHECKLIST.md          # 需要你填写的配置清单
 ├── SECURITY.md / BACKUP-RESTORE.md / MONITORING.md / LOADTEST.md / ACCEPTANCE.md
 └── TESTING.md                   # 网关 8 个必测场景
