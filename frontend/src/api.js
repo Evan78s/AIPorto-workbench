@@ -93,6 +93,7 @@ export const adminAPI = {
   get: (p) => call(p, { admin: true }),
   post: (p, body) => call(p, { admin: true, method: 'POST', body }),
   put: (p, body) => call(p, { admin: true, method: 'PUT', body }),
+  delete: (p) => call(p, { admin: true, method: 'DELETE' }),
 }
 
 export const consoleAPI = {

@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"aiporto/internal/config"
 	"aiporto/internal/consoleapi"
 	"aiporto/internal/metrics"
 	"aiporto/internal/proxy"
 	"aiporto/internal/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // rootPage 是网关根路径的静态落地页。API 网关本身没有首页，浏览器直接打开

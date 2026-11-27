@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"aiporto/internal/config"
+	"aiporto/internal/util"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"aiporto/internal/config"
-	"aiporto/internal/util"
 )
 
 // 下面这些 SQL 是客户控制台访问数据的唯一入口。
@@ -70,6 +70,7 @@ const tenantCtxKey ctxKey = "tenant_id"
 type API struct {
 	pg         *pgxpool.Pool
 	pepper     []byte
+	masterKey  []byte // 上游厂商 key 的 AES-GCM 主密钥，仅用于加密入库，绝不外泄
 	adminUser  string
 	adminPass  string
 	totpSecret string
@@ -80,6 +81,7 @@ func New(pg *pgxpool.Pool, cfg config.Config) *API {
 	return &API{
 		pg:         pg,
 		pepper:     cfg.KeyPepper,
+		masterKey:  cfg.MasterKey,
 		adminUser:  cfg.AdminUser,
 		adminPass:  cfg.AdminPassword,
 		totpSecret: cfg.AdminTOTPSecret,
@@ -108,6 +110,18 @@ func (a *API) Mount(r chi.Router) {
 			r.Post("/recharge", a.recharge)
 			r.Get("/alerts", a.alerts)
 			r.Put("/pricing", a.upsertPricing)
+			// 厂商与模型路由管理（网页配置厂商 key，替代 seed 命令）
+			r.Get("/providers", a.listProviders)
+			r.Post("/providers", a.createProvider)
+			r.Put("/providers/{id}", a.updateProvider)
+			r.Delete("/providers/{id}", a.deleteProvider)
+			r.Get("/providers/{id}/keys", a.listProviderKeys)
+			r.Post("/providers/{id}/keys", a.createProviderKey)
+			r.Delete("/provider-keys/{id}", a.deleteProviderKey)
+			r.Get("/routes", a.listRoutes)
+			r.Post("/routes", a.createRoute)
+			r.Put("/routes/{id}", a.updateRoute)
+			r.Delete("/routes/{id}", a.deleteRoute)
 		})
 	})
 	r.Route("/api/console", func(r chi.Router) {
@@ -224,12 +238,12 @@ func (a *API) listTenants(w http.ResponseWriter, r *http.Request) {
 }
 
 type createTenantReq struct {
-	Name             string `json:"name"`
-	PlanCode         string `json:"plan_code"`
-	RpmLimit         int    `json:"rpm_limit"`
-	ConcurrencyLimit int    `json:"concurrency_limit"`
-	DailyTokenLimit  int64  `json:"daily_token_limit"`
-	MonthlyTokenLimit int64 `json:"monthly_token_limit"`
+	Name              string `json:"name"`
+	PlanCode          string `json:"plan_code"`
+	RpmLimit          int    `json:"rpm_limit"`
+	ConcurrencyLimit  int    `json:"concurrency_limit"`
+	DailyTokenLimit   int64  `json:"daily_token_limit"`
+	MonthlyTokenLimit int64  `json:"monthly_token_limit"`
 }
 
 func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
@@ -297,10 +311,10 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 201, map[string]string{
-		"tenant_id":            tenantID,
-		"api_key_plaintext":    apiKey,
+		"tenant_id":               tenantID,
+		"api_key_plaintext":       apiKey,
 		"console_token_plaintext": consoleToken,
-		"note":                 "两项明文只返回这一次，请立即保存",
+		"note":                    "两项明文只返回这一次，请立即保存",
 	})
 }
 
@@ -337,11 +351,11 @@ func (a *API) adminListKeys(w http.ResponseWriter, r *http.Request) {
 }
 
 type quotaReq struct {
-	PlanID           string `json:"plan_id"`
-	MonthlyTokenLimit int64 `json:"monthly_token_limit"`
-	RpmLimit         int    `json:"rpm_limit"`
-	ConcurrencyLimit int    `json:"concurrency_limit"`
-	DailyTokenLimit  int64  `json:"daily_token_limit"`
+	PlanID            string `json:"plan_id"`
+	MonthlyTokenLimit int64  `json:"monthly_token_limit"`
+	RpmLimit          int    `json:"rpm_limit"`
+	ConcurrencyLimit  int    `json:"concurrency_limit"`
+	DailyTokenLimit   int64  `json:"daily_token_limit"`
 }
 
 func (a *API) updateQuota(w http.ResponseWriter, r *http.Request) {
@@ -415,13 +429,13 @@ func (a *API) listPlans(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createPlan(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Code             string  `json:"code"`
-		Name             string  `json:"name"`
-		MonthlyTokenLimit int64  `json:"monthly_token_limit"`
-		RpmLimit         int     `json:"rpm_limit"`
-		ConcurrencyLimit int     `json:"concurrency_limit"`
-		DailyTokenLimit  int64   `json:"daily_token_limit"`
-		PricePerMonth    float64 `json:"price_per_month"`
+		Code              string  `json:"code"`
+		Name              string  `json:"name"`
+		MonthlyTokenLimit int64   `json:"monthly_token_limit"`
+		RpmLimit          int     `json:"rpm_limit"`
+		ConcurrencyLimit  int     `json:"concurrency_limit"`
+		DailyTokenLimit   int64   `json:"daily_token_limit"`
+		PricePerMonth     float64 `json:"price_per_month"`
 	}
 	if err := decodeJSON(r, &req); err != nil || req.Code == "" || req.Name == "" {
 		writeJSON(w, 400, map[string]string{"error": "code and name required"})
@@ -607,10 +621,10 @@ func (a *API) alerts(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) upsertPricing(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Model      string  `json:"model"`
-		Input1M    float64 `json:"input_price_per_1m"`
-		Output1M   float64 `json:"output_price_per_1m"`
-		Currency   string  `json:"currency"`
+		Model    string  `json:"model"`
+		Input1M  float64 `json:"input_price_per_1m"`
+		Output1M float64 `json:"output_price_per_1m"`
+		Currency string  `json:"currency"`
 	}
 	if err := decodeJSON(r, &req); err != nil || req.Model == "" {
 		writeJSON(w, 400, map[string]string{"error": "model required"})
@@ -860,7 +874,7 @@ func (a *API) snippets(w http.ResponseWriter, r *http.Request) {
 			"  -H \"Content-Type: application/json\" \\\n" +
 			"  -d '{\"model\":\"<YOUR_MODEL_ALIAS>\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}'",
 		"python": "import os, requests\n\nr = requests.post(\n    'http://127.0.0.1:8080/v1/chat/completions',\n    headers={'Authorization': 'Bearer ' + os.environ['WB_API_KEY']},\n    json={'model': '<YOUR_MODEL_ALIAS>', 'stream': True,\n          'messages': [{'role': 'user', 'content': '你好'}]},\n    stream=True,\n)\nfor line in r.iter_lines():\n    if line:\n        print(line.decode())",
-		"note": "<YOUR_API_KEY> 与 <YOUR_MODEL_ALIAS> 请替换为你自己的值；不要把真实 key 提交到代码仓库。",
+		"note":   "<YOUR_API_KEY> 与 <YOUR_MODEL_ALIAS> 请替换为你自己的值；不要把真实 key 提交到代码仓库。",
 	})
 }
 
