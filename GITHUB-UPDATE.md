@@ -59,6 +59,37 @@ docker compose -f docker-compose.prod.yaml exec -T postgres \
 
 另外每次更新后扫一眼 `.env.example` 有没有新增配置项。新配置不会自动进你的 `.env`，要手动补；旧 `.env` 不会被 `git pull` 覆盖。
 
+## 升级到「用户自助注册/购买」版（本次新增）
+
+如果你已经在服务器上装过旧版（只有网关 + 后台 + 控制台），这次升级**不能只重跑首次安装那条 `git clone` 命令**——目录已经存在，clone 会失败；就算强行覆盖，`.env` 和新表也不会自动就位。按下面这套做：
+
+```bash
+cd /www/docker/aiporto
+
+# 1. 备份，必做
+bash scripts/backup.sh
+
+# 2. 拉新代码（不是重新 clone）
+git pull
+
+# 3. 补跑用户端数据库迁移
+#    迁移只在数据库首次初始化时空库自动执行；已有数据卷必须手动补一次
+bash scripts/migrate-user-portal.sh
+
+# 4. 重建容器（--build 让新增的 user-ui 服务也起来）
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml \
+  up -d --build --force-recreate gateway admin-ui user-ui
+
+# 5. 检查全部 healthy
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml ps
+```
+
+还要补三件事，否则功能不完整：
+
+1. **`.env` 新增配置**：对照新的 `.env.example` 手动补 `USER_PORTAL_URL`、`PUBLIC_BASE_URL`、`SMTP_HOST/PORT/USER/PASS/FROM/TLS`。SMTP 不配的话，用户注册接口会返回 503。旧 `.env` 不会被 `git pull` 覆盖。
+2. **宝塔加一个用户端站点**：域名 `user.你的域名.com`，反向代理目标 `http://127.0.0.1:8082`，申请 SSL。网关和 admin 两个站点不用动。
+3. **厂商 key 改到后台填**：进入 `/admin` →「厂商管理」「模型路由」页面直接填，不用再跑 seed 命令；已录的 key 不受影响。
+
 ## 出问题怎么退回
 
 ```bash
