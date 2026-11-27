@@ -171,6 +171,8 @@ proxy_request_buffering off;
 proxy_read_timeout 600s;
 ```
 
+> **浏览器打开这个站点显示 `404 page not found` 是正常的**：网关没有首页，根路径 `/` 未注册，这个 404 文本正是网关返回的，说明反代已通。用 `curl https://gw.你的域名/healthz` 验证，返回 `ok` 即正常。客户调用地址是 `https://gw.你的域名/v1/chat/completions`。
+
 ### 6.3 防火墙
 
 宝塔左侧「安全」→ 放行 80、443。**不要放行 8080、8081、9090 到公网**。管理后台建议只走 6.1 的域名 + HTTPS，或者继续用 SSH 隧道（见 `SERVER-INSTALL.md` 第 6.2 节）。
