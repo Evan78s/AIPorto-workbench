@@ -171,7 +171,7 @@ proxy_request_buffering off;
 proxy_read_timeout 600s;
 ```
 
-> **浏览器打开这个站点显示 `404 page not found` 是正常的**：网关没有首页，根路径 `/` 未注册，这个 404 文本正是网关返回的，说明反代已通。用 `curl https://gw.你的域名/healthz` 验证，返回 `ok` 即正常。客户调用地址是 `https://gw.你的域名/v1/chat/completions`。
+> **浏览器打开这个站点看到一个"Aiporto 智港 · 网关运行中"的说明页就是正常的**：网关根路径 `/` 会返回一个静态说明页，能打开说明反代已通、网关正常。若仍是干净的 `404 page not found`，说明服务器跑的是旧版网关，按更新步骤 `git pull` 并重建容器后再看。用 `curl https://gw.你的域名/healthz` 验证，返回 `ok` 即正常。客户调用地址是 `https://gw.你的域名/v1/chat/completions`。
 
 ### 6.3 防火墙
 
