@@ -17,7 +17,8 @@
 | 阿里云网页控制台 | 买 ECS、放行安全组、域名解析 | 你点鼠标 |
 | 你的电脑 → 服务器 | 传一个安装包 | 一条 `scp` 或宝塔上传 |
 | 服务器终端 | 执行一条命令，装完全套 | 脚本自动 |
-| 服务器终端 / 后台网页 | 填管理员、厂商 key、套餐、租户 | 你填（只有你知道的值） |
+| 服务器终端 | 填管理员账号、录 TOTP、写入厂商 key（命令行） | 你填（只有你知道的值） |
+| 后台网页 | 建套餐、建租户、签发客户 key、看用量充值 | 你点鼠标 |
 
 ---
 
@@ -179,8 +180,23 @@ proxy_read_timeout 600s;
 把代码挪到网站根目录之外，本身就是最有效的一层防护：nginx 根本不会去 `/www/docker/` 里找文件，`.env` 天然就不是一个可通过域名访问的 URL。但仍然要做两件事兜底：
 
 1. **不要为 `/www/docker/aiporto/` 单独建任何网站或站点目录映射**。宝塔的两个站点只做反向代理，根目录用默认值，绝不要指向项目目录——一旦指向，等于把 `.env` 放到了公网路径下。
-2. **给两个站点都加一份兜底防护**：宝塔 → 站点 →「配置文件」→ 把项目里 `nginx-deny.conf` 的内容粘贴进 `server { }` 内保存。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即便将来有人误把站点根目录设到项目目录，也不会泄露。
+2. **给两个站点都加一份兜底防护**：见下面 5.4.1 的逐步操作。这份规则会拒绝 `.env`、`*.key`、`migrations/`、`scripts/` 等敏感路径的直接访问，即便将来有人误把站点根目录设到项目目录，也不会泄露。
 3. **验证**：浏览器打开 `https://admin.你的域名/.env`，必须返回 **403**。返回了文件内容就说明配置出了问题，**立刻停掉站点排查**，不要继续。
+
+#### 5.4.1 怎么把 nginx-deny.conf 贴进站点配置（照着点）
+
+两个站点（`admin.你的域名`、`gw.你的域名`）**各做一遍**：
+
+1. 宝塔面板 → 左侧「网站」→ 点站点名（如 `admin.你的域名`）进入管理页。
+2. 点「配置文件」标签（在「设置」旁边，有些版本叫「配置修改」）。会打开一个文本编辑器，里面是这个站点的完整 nginx 配置。
+3. 在里面找到一行 `server {`——它是整个配置的主体大括号。**把光标点到 `server {` 这一行的下一行**（也就是大括号内部）。
+4. 打开项目里的 `nginx-deny.conf`：宝塔「文件」→ 进 `/www/docker/aiporto/` → 找到 `nginx-deny.conf` → 双击「打开」→ 全选（`Ctrl+A`）→ 复制（`Ctrl+C`）。
+5. 回到站点配置编辑器，在第 3 步的位置**粘贴**（`Ctrl+V`）。
+   > **关键点**：`nginx-deny.conf` 里全是 `location { ... }` 规则，它们**必须待在 `server { ... }` 的大括号里面**。贴在 `server` 外面 nginx 会启动失败。你可以看缩进：贴进去后这些 `location` 应该和编辑器里已有的 `location /` 处于同一层。
+6. 点编辑器下方的「保存」。宝塔会自动检测 nginx 配置并重载；如果提示配置错误，多半是贴错了位置（贴到 `server` 外面了）或重复粘贴，删掉重贴到第 3 步的位置。
+7. 换另一个站点，重复第 1–6 步。
+
+> 更省事的替代做法：如果你熟悉 SSH，可以直接在服务器执行一条命令把内容追加进两个站点的配置文件（宝塔站点配置通常在 `/www/server/panel/vhost/nginx/站点域名.conf`）。但用面板点更直观，推荐新手走上面的步骤。
 
 ### 5.5 防火墙 / 安全组收口
 
@@ -190,21 +206,52 @@ proxy_read_timeout 600s;
 
 ## 第 6 步：装完必做的四件事
 
-不管哪种安装方式，这四件都得你亲自做，因为只有你知道这些值。详细命令在 `INSTALL.md` 的「装完必做的四件事」一节：
+不管哪种安装方式，这四件都得你亲自做，因为只有你知道这些值。
 
-1. **填管理员账号密码**：编辑 `/www/docker/aiporto/.env` 里的 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填完 `docker compose -f docker-compose.prod.yaml restart gateway`。
-2. **录 TOTP 验证器**：用 Aegis / FreeOTP 录第 4 步打印的 TOTP 私钥，登录后台要密码 + 6 位动态码。
-3. **写入厂商 API key**：用 `seed` 命令把你的 DeepSeek/阿里百炼等真实 key 加密入库。**本文档不提供任何 key。**
-4. **建套餐、建租户、签发客户 key**：登录 `https://admin.你的域名/admin` 操作，客户 key 只在签发那一刻明文显示一次。
+> **重要：下面的命令都写了绝对路径，你在 `/root`、`~` 还是别的目录执行都行，不用先 `cd`。** 之前有人在 `/root` 下直接跑 `docker compose -f docker-compose.prod.yaml ...` 报 `stat /root/docker-compose.prod.yaml: no such file or directory`，就是因为没写全路径——compose 会去**当前目录**找那个 yaml 文件。用下面带 `-f /www/docker/aiporto/...` 的写法就不会错。
+
+**1. 填管理员账号密码**
+
+```bash
+nano /www/docker/aiporto/.env
+```
+
+找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。然后重启网关让配置生效：
+
+```bash
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml restart gateway
+```
+
+**2. 录 TOTP 验证器**：用 Aegis / FreeOTP 录第 4 步打印的 TOTP 私钥，登录后台要密码 + 6 位动态码。
+
+**3. 写入厂商 API key**（命令行完成，后台没有这个入口，见下方说明）：
+
+```bash
+cd /www/docker/aiporto
+read -rs SEED_UPSTREAM_KEY_PLAIN && export SEED_UPSTREAM_KEY_PLAIN
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml run --rm --entrypoint seed \
+  -e SEED_UPSTREAM_KEY_PLAIN gateway \
+  -tenant-name "你的租户名" \
+  -provider-code deepseek \
+  -provider-base-url "https://api.deepseek.com" \
+  -model-alias "你给客户的模型别名" \
+  -model "DeepSeek 的真实模型名"
+unset SEED_UPSTREAM_KEY_PLAIN
+```
+
+参数按你实际用的厂商改（上面是 DeepSeek 示例）；屏幕会打印一次 `CUSTOMER_KEY_PLAINTEXT=sk-wb-...`，立刻复制保存，数据库里只存哈希。**本文档不提供任何厂商 key。**
+
+> **为什么厂商 key 不能在管理后台填？** 后台目前只管套餐、租户、客户 key、额度、充值、价格——**没有写入上游厂商 key 的接口**。这是有意设计：厂商 key 属于最高敏感凭证，只在命令行用环境变量传入、经 AES-256-GCM 加密后入库，不经过网页表单和浏览器，减少泄露面。所以这一步只能用命令做，做一次即可。
+
+**4. 建套餐、建租户、签发客户 key**：登录 `https://admin.你的域名/admin` 操作，客户 key 只在签发那一刻明文显示一次。
 
 ---
 
 ## 第 7 步：验证通了
 
 ```bash
-cd /www/docker/aiporto
-docker compose -f docker-compose.prod.yaml ps          # STATUS 全是 healthy
-curl http://127.0.0.1:8080/healthz                     # 返回 ok
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml ps          # STATUS 全是 healthy
+curl http://127.0.0.1:8080/healthz                                        # 返回 ok
 ```
 
 浏览器打开 `https://admin.你的域名`（或 SSH 隧道下的 `http://127.0.0.1:8081/admin`），用第 6 步的账号密码 + 动态码登录，能进去就通了。

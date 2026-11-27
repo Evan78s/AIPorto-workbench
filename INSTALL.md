@@ -168,10 +168,10 @@ cd /www/docker/aiporto && bash install.sh
 nano /www/docker/aiporto/.env
 ```
 
-找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空）。填完重启网关：
+找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。填完重启网关——**命令用了绝对路径，你在任何目录执行都行**（如果报 `stat /root/docker-compose.prod.yaml: no such file or directory`，就是把路径写漏了）：
 
 ```bash
-cd /www/docker/aiporto && docker compose -f docker-compose.prod.yaml restart gateway
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml restart gateway
 ```
 
 **2. 把 TOTP 私钥录进验证器**
@@ -180,17 +180,22 @@ cd /www/docker/aiporto && docker compose -f docker-compose.prod.yaml restart gat
 
 **3. 写入你自己的厂商 key**
 
+> 后台**没有**填厂商 key 的入口（有意设计：最高敏感凭证不经过网页表单）。这一步只能在命令行做一次，用环境变量传入、加密入库，服务器不需要装 Go。
+
 ```bash
 cd /www/docker/aiporto
-SEED_UPSTREAM_KEY_PLAIN='你的厂商key' go run ./cmd/seed \
-  -tenant-name '<你的租户名>' \
-  -provider-code <厂商代号> \
-  -provider-base-url <厂商API根地址> \
-  -model-alias <客户端用的模型别名> \
-  -model <厂商真实模型名>
+read -rs SEED_UPSTREAM_KEY_PLAIN && export SEED_UPSTREAM_KEY_PLAIN
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml run --rm --entrypoint seed \
+  -e SEED_UPSTREAM_KEY_PLAIN gateway \
+  -tenant-name '你的租户名' \
+  -provider-code deepseek \
+  -provider-base-url 'https://api.deepseek.com' \
+  -model-alias '你给客户的模型别名' \
+  -model 'DeepSeek 真实模型名'
+unset SEED_UPSTREAM_KEY_PLAIN
 ```
 
-还有四个可选参数：`-rpm`、`-concurrency`、`-daily-tokens`、`-weight`。完整参数表见 `cmd/seed/main.go` 第 25–34 行。**不要**把 key 写进 `.env`、git 或任何文档。
+上面是 DeepSeek 示例，按你实际厂商改（阿里百炼、火山方舟等）。还有四个可选参数：`-rpm`、`-concurrency`、`-daily-tokens`、`-weight`。完整参数表见 `cmd/seed/main.go` 第 25–34 行。**不要**把 key 写进 `.env`、git 或任何文档。屏幕会打印一次 `CUSTOMER_KEY_PLAINTEXT=sk-wb-...`，立刻复制保存。
 
 **4. 建套餐、建租户、签发客户 key**
 
