@@ -20,6 +20,8 @@
 | 路径 | 页面 | 说明 |
 | --- | --- | --- |
 | `/admin/tenants` | 租户与 key | 列表、创建租户并签发 key、签发额外 key、设置额度 |
+| `/admin/providers` | 厂商管理 | 新增/停用厂商、加密写入厂商 key（只显示掩码）、查看该厂商 key 列表 |
+| `/admin/routes` | 模型路由 | 新增/编辑/启停/删除路由；全局路由与租户专属路由，别名→真实模型 |
 | `/admin/usage` | 用量看板 | 按天/按租户/按模型聚合，含 token 与费用，按天有曲线 |
 | `/admin/ledger` | 账本流水 | 手动充值、流水列表 |
 | `/admin/alerts` | 异常告警 | 余额低、单日用量 3 倍突增、上游 429 激增 |
@@ -49,6 +51,12 @@
 | POST | `/api/admin/recharge` | 手动充值（reference_id 幂等） |
 | GET | `/api/admin/alerts` | 三类异常告警 |
 | PUT | `/api/admin/pricing` | 录入/更新模型价格 |
+| GET / POST | `/api/admin/providers` | 厂商列表（含活跃 key 数）/ 新增厂商 |
+| PUT / DELETE | `/api/admin/providers/{id}` | 修改厂商（地址/协议/启停）/ 归档厂商并停用其 key 与路由 |
+| GET / POST | `/api/admin/providers/{id}/keys` | 厂商 key 列表（仅掩码）/ 加密写入新 key（明文只收一次） |
+| DELETE | `/api/admin/provider-keys/{id}` | 停用厂商 key |
+| GET / POST | `/api/admin/routes` | 路由列表 / 新增路由 |
+| PUT / DELETE | `/api/admin/routes/{id}` | 修改路由（厂商/模型/优先级/启停）/ 删除路由 |
 
 客户控制台（全部需要 `Authorization: Bearer cw-...`）：
 
