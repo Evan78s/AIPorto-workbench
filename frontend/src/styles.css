@@ -24,6 +24,14 @@ h1 { font-size: 20px; }
 h2 { font-size: 17px; }
 a { color: var(--accent); text-decoration: none; }
 
+/* 双因素登录守卫：未登录时只显示这张卡片，不渲染任何后台内容 */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-card { width: 100%; max-width: 420px; padding: 28px; }
+.login-card .brand { margin-bottom: 22px; }
+.login-form { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.login-form label { color: var(--muted); font-size: 12px; }
+.logout-btn { margin-top: 10px; width: 100%; }
+
 .shell { display: flex; min-height: 100vh; }
 .sidebar {
   width: 210px; flex: none; background: var(--surface);

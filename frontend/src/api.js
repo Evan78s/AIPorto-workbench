@@ -5,8 +5,29 @@ const CONSOLE_KEY = 'wb_console_token'
 export function saveAdminSession(token) {
   sessionStorage.setItem(ADMIN_SESSION_KEY, token.trim())
 }
+
+// 令牌形如 base64url("admin|user|exp").base64url(hmac)。签名由服务端校验，
+// 这里只做本地过期判断，避免过期令牌让界面误判为"已登录"（数据接口仍会 401）。
+function adminSessionValid(token) {
+  try {
+    const p = token.split('.')[0]
+    let b64 = p.replace(/-/g, '+').replace(/_/g, '/')
+    while (b64.length % 4) b64 += '='
+    const f = atob(b64).split('|')
+    return f.length === 3 && f[0] === 'admin' && Number(f[2]) > Math.floor(Date.now() / 1000)
+  } catch (_) {
+    return false
+  }
+}
+
 export function loadAdminSession() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) || ''
+  const token = sessionStorage.getItem(ADMIN_SESSION_KEY) || ''
+  if (!token) return ''
+  if (!adminSessionValid(token)) {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY)
+    return ''
+  }
+  return token
 }
 export function clearAdminSession() {
   sessionStorage.removeItem(ADMIN_SESSION_KEY)
@@ -35,6 +56,11 @@ async function call(path, { admin = false, method = 'GET', body, download = fals
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!res.ok) {
+    // 后台会话过期/无效时清掉本地令牌并通知界面回到登录页
+    if (admin && res.status === 401) {
+      clearAdminSession()
+      window.dispatchEvent(new Event('admin-session-expired'))
+    }
     let message = `请求失败 (${res.status})`
     try {
       const data = await res.json()

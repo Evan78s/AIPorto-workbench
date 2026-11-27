@@ -168,11 +168,13 @@ cd /www/docker/aiporto && bash install.sh
 nano /www/docker/aiporto/.env
 ```
 
-找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。填完重启网关——**命令用了绝对路径，你在任何目录执行都行**（如果报 `stat /root/docker-compose.prod.yaml: no such file or directory`，就是把路径写漏了）：
+找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。填完后**必须重建容器**让新配置生效——**命令用了绝对路径，你在任何目录执行都行**（如果报 `stat /root/docker-compose.prod.yaml: no such file or directory`，就是把路径写漏了）：
 
 ```bash
-docker compose -f /www/docker/aiporto/docker-compose.prod.yaml restart gateway
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml up -d --force-recreate gateway
 ```
+
+> **⚠️ 不能用 `restart`，必须用 `up -d --force-recreate`。** `restart` 只是把旧容器停了再启动，不会重新读取改过的 `.env`，所以你填的新账号密码不会生效——这正是"配置改了没反应"的常见原因。`--force-recreate` 会销毁旧容器、用新环境变量重建一个，配置才会真正生效。执行完用 `docker compose -f /www/docker/aiporto/docker-compose.prod.yaml ps` 确认 gateway 是 `Up` 状态。
 
 **2. 把 TOTP 私钥录进验证器**
 

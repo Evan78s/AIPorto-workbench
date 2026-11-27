@@ -224,11 +224,17 @@ proxy_read_timeout 600s;
 nano /www/docker/aiporto/.env
 ```
 
-找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。然后重启网关让配置生效：
+找到 `ADMIN_USER=` 和 `ADMIN_PASSWORD=`，填你自己的值（脚本故意留空），`Ctrl+O` 回车保存、`Ctrl+X` 退出。然后**重建容器**让配置生效：
 
 ```bash
-docker compose -f /www/docker/aiporto/docker-compose.prod.yaml restart gateway
+docker compose -f /www/docker/aiporto/docker-compose.prod.yaml up -d --force-recreate gateway
 ```
+
+> **⚠️ 必须用 `up -d --force-recreate`，不能用 `restart`。** `restart` 只是重启旧容器，不会重新读取改过的 `.env`——你填的新账号密码不会生效，这正是"配置改了没反应"的原因。`--force-recreate` 会用新环境变量重建容器，配置才真正生效。执行完确认 gateway 是 `Up` 状态：
+>
+> ```bash
+> docker compose -f /www/docker/aiporto/docker-compose.prod.yaml ps
+> ```
 
 **2. 录 TOTP 验证器**：用 Aegis / FreeOTP 录第 4 步打印的 TOTP 私钥，登录后台要密码 + 6 位动态码。
 
