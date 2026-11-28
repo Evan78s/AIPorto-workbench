@@ -1,5 +1,7 @@
 # 备份与恢复（每日备份 / 保留 30 天 / 演练恢复）
 
+> **换服务器或灾难恢复请看 `MIGRATION.md`**：`bash scripts/snapshot.sh` 一键打包数据库 + Redis + `.env` + 代码，新服务器 `bash scripts/migrate.sh <快照文件>` 一键还原。本文下面的 `backup.sh` 只备份数据库，适合日常轻量备份。
+
 ## 1. 每日自动备份
 
 `scripts/backup.sh` 做四件事：用 `pg_dump -Fc` 导出 custom format → 用 `pg_restore -l` 校验备份可读 → gzip 压缩 → 删除超过 30 天的旧文件。备份落在项目目录下的 `backups/wb_YYYYMMDD_HHMMSS.dump.gz`。

@@ -23,6 +23,7 @@ aiporto-install.sh
 
 # ===== 备份与日志（含业务数据） =====
 backups/
+snapshots/
 *.dump
 *.sql.gz
 *.log
