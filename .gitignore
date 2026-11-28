@@ -21,6 +21,9 @@ frontend-user/dist/
 aiporto-install.sh
 .offline-stage/
 
+# ===== 图标交付目录（生成的 PNG/ICO，前端 public 内的正式图标正常入库） =====
+output/
+
 # ===== 备份与日志（含业务数据） =====
 backups/
 snapshots/
