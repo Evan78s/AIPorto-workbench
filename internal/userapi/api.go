@@ -54,6 +54,7 @@ func (a *API) Mount(r chi.Router) {
 			r.Post("/password", a.changePassword)
 			r.Get("/my-plan", a.myPlan)
 			r.Get("/keys", a.keyInfo)
+			r.Post("/keys/rotate", a.rotateKey)
 			r.Post("/orders", a.createOrder)
 			r.Get("/orders", a.listOrders)
 			r.Get("/orders/{id}", a.getOrder)

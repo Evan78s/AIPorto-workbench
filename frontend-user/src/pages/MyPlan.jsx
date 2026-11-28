@@ -8,6 +8,10 @@ export default function MyPlan() {
   const [plan, setPlan] = useState(null)
   const [keys, setKeys] = useState([])
   const [error, setError] = useState('')
+  const [rotatePw, setRotatePw] = useState('')
+  const [rotateMsg, setRotateMsg] = useState('')
+  const [rotating, setRotating] = useState(false)
+  const [newKey, setNewKey] = useState('')
 
   useEffect(() => {
     userAPI.myPlan().then(setPlan).catch((e) => setError(e.message))
@@ -16,6 +20,25 @@ export default function MyPlan() {
 
   if (error) return <div className="card"><p className="error">{error}</p></div>
   if (!plan) return <div className="card"><p className="muted">加载中…</p></div>
+
+  async function rotate(e) {
+    e.preventDefault()
+    setRotateMsg(''); setRotating(true)
+    try {
+      const res = await userAPI.rotateKey(rotatePw)
+      setNewKey(res.api_key_plaintext || '')
+      setRotatePw('')
+      setRotateMsg('✓ ' + (res.note || '已生成新 Key'))
+      const d = await userAPI.keys().catch(() => ({ keys: [] }))
+      setKeys(d.keys || [])
+    } catch (err) { setRotateMsg(err.message) } finally { setRotating(false) }
+  }
+
+  async function copyKey() {
+    if (!newKey) return
+    try { await navigator.clipboard.writeText(newKey); setRotateMsg('✓ 已复制到剪贴板') }
+    catch { setRotateMsg('复制失败，请手动选中复制') }
+  }
 
   const limit = Number(plan.monthly_token_limit || 0)
   const used = Number(plan.month_tokens || 0)
@@ -77,8 +100,28 @@ export default function MyPlan() {
           </table>
         )}
         <p className="muted" style={{ marginTop: 12 }}>
-          完整 Key 仅在支付成功后的订单详情里显示一次。如遗失，可到 <Link to="/orders">我的订单</Link> 查看；仍无法找回请联系运营方重置。
+          为安全起见，服务端只保存 Key 摘要，无法重新显示旧 Key。遗失后可在下方自行轮换，旧 Key 会立即失效。
         </p>
+      </div>
+
+      <div className="card">
+        <h2>轮换 API Key</h2>
+        <p className="muted">如怀疑 Key 泄露或忘记保存，验证当前登录密码后即可生成新 Key。旧 Key 立即停用，请及时更新你的应用配置。</p>
+        <form onSubmit={rotate} className="form">
+          <label>当前登录密码</label>
+          <input type="password" value={rotatePw} onChange={(e) => setRotatePw(e.target.value)} required autoComplete="current-password" placeholder="输入密码确认是你的操作" />
+          <button type="submit" disabled={rotating} className="danger" style={{ alignSelf: 'flex-start' }}>
+            {rotating ? '正在轮换…' : '轮换并生成新 Key'}
+          </button>
+        </form>
+        {newKey && (
+          <div className="new-key-box" style={{ marginTop: 14 }}>
+            <p className="muted" style={{ margin: '0 0 6px' }}>新 Key（仅显示这一次，请立即保存）：</p>
+            <code>{newKey}</code>
+            <button type="button" className="secondary" onClick={copyKey} style={{ marginTop: 10 }}>复制 Key</button>
+          </div>
+        )}
+        {rotateMsg && <p className={rotateMsg.startsWith('✓') ? 'ok-msg' : 'error'}>{rotateMsg}</p>}
       </div>
 
       <div className="card">

@@ -96,6 +96,7 @@
 | GET | `/api/user/orders/{order_no}` | 订单详情（含支付二维码/转账信息） |
 | POST | `/api/user/orders/{order_no}/cancel` | 取消待支付订单 |
 | POST | `/api/user/orders/{order_no}/credentials` | 领取一次性明文 API Key 与控制台令牌 |
+| POST | `/api/user/keys/rotate` | 验证密码后自助轮换 API Key，旧 Key 立即停用 |
 
 运营后台新增（复用双因素鉴权）：
 

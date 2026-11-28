@@ -52,6 +52,7 @@ export const userAPI = {
   changePassword: (oldPassword, newPassword) => call('/user/password', { method: 'POST', auth: true, body: { old_password: oldPassword, new_password: newPassword } }),
   myPlan: () => call('/user/my-plan', { auth: true }),
   keys: () => call('/user/keys', { auth: true }),
+  rotateKey: (password) => call('/user/keys/rotate', { method: 'POST', auth: true, body: { password } }),
   config: () => call('/user/config'),
   plans: () => call('/user/plans'),
   channels: () => call('/user/pay/channels'),

@@ -3,6 +3,8 @@ package userapi
 import (
 	"net/http"
 	"strings"
+
+	"aiporto/internal/util"
 )
 
 // updateProfile 修改昵称。昵称只允许非空字符串、最长 32 字符，邮箱不可改（邮箱是登录标识）。
@@ -184,4 +186,81 @@ func (a *API) keyInfo(w http.ResponseWriter, r *http.Request) {
 		keys = append(keys, keyView{Prefix: prefix, Status: status, CreatedAt: created})
 	}
 	writeJSON(w, 200, map[string]any{"keys": keys})
+}
+
+// rotateKey 用户自助轮换 API Key：验证登录密码后停用当前所有 active key，
+// 按最近一条 key 的限额签发新 key。明文只返回这一次，数据库只存 HMAC 摘要。
+func (a *API) rotateKey(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid json"})
+		return
+	}
+	if req.Password == "" {
+		writeJSON(w, 400, map[string]string{"error": "请输入当前登录密码"})
+		return
+	}
+	ctx := r.Context()
+	uid := userIDFrom(r)
+	var pwHash string
+	if err := a.pg.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1`, uid).Scan(&pwHash); err != nil {
+		writeJSON(w, 404, map[string]string{"error": "user not found"})
+		return
+	}
+	if !checkPassword(pwHash, req.Password) {
+		writeJSON(w, 400, map[string]string{"error": "当前密码不正确"})
+		return
+	}
+	var tenantID string
+	if err := a.pg.QueryRow(ctx, `SELECT id::text FROM tenants WHERE owner_user_id=$1`, uid).Scan(&tenantID); err != nil {
+		writeJSON(w, 404, map[string]string{"error": "tenant not found"})
+		return
+	}
+
+	tx, err := a.pg.Begin(ctx)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback(ctx)
+	var rpm, conc int
+	var daily int64
+	if err := tx.QueryRow(ctx, `
+		SELECT rpm_limit, concurrency_limit, daily_token_limit FROM api_keys
+		WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 1`, tenantID).
+		Scan(&rpm, &conc, &daily); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "没有可轮换的 Key，请先购买套餐"})
+		return
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE api_keys SET status='revoked', revoked_at=now()
+		WHERE tenant_id=$1 AND status='active'`, tenantID); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	plain := "sk-wb-" + randomHex(16)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO api_keys(id, tenant_id, name, key_prefix, key_hash, rpm_limit, concurrency_limit, daily_token_limit)
+		VALUES($1,$2,'自助轮换',$3,$4,$5,$6,$7)`,
+		util.NewID(), tenantID, plain[:12], util.HashKey(a.pepper, plain), rpm, conc, daily); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	// 清掉未领取的旧凭据，避免用户之后再领取到已停用的 Key。
+	if _, err := tx.Exec(ctx, `
+		UPDATE orders SET pending_credentials=NULL, credentials_taken_at=now()
+		WHERE user_id=$1 AND pending_credentials IS NOT NULL`, uid); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, 201, map[string]any{
+		"api_key_plaintext": plain,
+		"note":              "旧 Key 已立即停用，新 Key 只返回这一次",
+	})
 }
