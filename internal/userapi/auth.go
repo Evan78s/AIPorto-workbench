@@ -1,6 +1,7 @@
 package userapi
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -225,23 +226,46 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "logged_out"})
 }
 
+// hasNicknameColumn 检测 users.nickname 是否存在，兼容尚未应用 005 迁移的旧库。
+func (a *API) hasNicknameColumn(ctx context.Context) bool {
+	var exists bool
+	err := a.pg.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		               WHERE table_name='users' AND column_name='nickname')`).Scan(&exists)
+	return err == nil && exists
+}
+
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
-	var email, created, planName string
+	var email, nickname, created, planName string
 	var verified bool
-	err := a.pg.QueryRow(r.Context(), `
-		SELECT u.email, to_char(u.created_at,'YYYY-MM-DD HH24:MI'),
-		       (u.email_verified_at IS NOT NULL),
-		       COALESCE((SELECT p.name FROM tenants t
-		                 JOIN subscriptions s ON s.tenant_id=t.id
-		                 LEFT JOIN plans p ON p.id=s.plan_id
-		                 WHERE t.owner_user_id=u.id LIMIT 1),'未购买')
-		FROM users u WHERE u.id=$1`, userIDFrom(r)).Scan(&email, &created, &verified, &planName)
+	var err error
+	if a.hasNicknameColumn(r.Context()) {
+		err = a.pg.QueryRow(r.Context(), `
+			SELECT u.email, COALESCE(u.nickname,''), to_char(u.created_at,'YYYY-MM-DD HH24:MI'),
+			       (u.email_verified_at IS NOT NULL),
+			       COALESCE((SELECT p.name FROM tenants t
+			                 JOIN subscriptions s ON s.tenant_id=t.id
+			                 LEFT JOIN plans p ON p.id=s.plan_id
+			                 WHERE t.owner_user_id=u.id LIMIT 1),'未购买')
+			FROM users u WHERE u.id=$1`, userIDFrom(r)).Scan(&email, &nickname, &created, &verified, &planName)
+	} else {
+		// 旧库降级：昵称暂用邮箱前缀，不影响登录与主流程。
+		err = a.pg.QueryRow(r.Context(), `
+			SELECT u.email, to_char(u.created_at,'YYYY-MM-DD HH24:MI'),
+			       (u.email_verified_at IS NOT NULL),
+			       COALESCE((SELECT p.name FROM tenants t
+			                 JOIN subscriptions s ON s.tenant_id=t.id
+			                 LEFT JOIN plans p ON p.id=s.plan_id
+			                 WHERE t.owner_user_id=u.id LIMIT 1),'未购买')
+			FROM users u WHERE u.id=$1`, userIDFrom(r)).Scan(&email, &created, &verified, &planName)
+		nickname = strings.SplitN(email, "@", 2)[0]
+	}
 	if err != nil {
 		writeJSON(w, 404, map[string]string{"error": "user not found"})
 		return
 	}
 	writeJSON(w, 200, map[string]any{
-		"user_id": userIDFrom(r), "email": email, "created_at": created,
-		"email_verified": verified, "plan": planName,
+		"user_id": userIDFrom(r), "email": email, "nickname": nickname,
+		"created_at": created, "email_verified": verified, "plan": planName,
 	})
 }

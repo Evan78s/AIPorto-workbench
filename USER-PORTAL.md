@@ -96,6 +96,16 @@ docker compose -f docker-compose.prod.yaml up -d --force-recreate gateway user-u
    
    **明文只显示这一次**，请立即保存。之后可在客户控制台用 `cw-` 令牌登录查看用量、管理 key。
 
+### 用户中心（本次新增）
+
+登录后的顶栏右上角显示用户头像与昵称，点击展开菜单：
+
+- **个人资料**（`/profile`）：修改昵称、修改密码。改密码需校验旧密码，成功后所有会话失效，需重新登录。邮箱是登录标识，不可修改。
+- **我的套餐**（`/my-plan`）：查看套餐额度、本月已用/剩余 token、RPM/并发/日 token、已开通的 API Key 前缀。
+- **接入指南**（`/docs`，无需登录也可看）：完整的 API 对接说明，base URL 由后端 `PUBLIC_BASE_URL` 自动下发，包含 curl / Python / Node.js 示例、OpenClaw / Claude Code 配置、SSE 流式示例和常见问题。
+
+> 昵称字段在 `migrations/005_user_profile.sql`，需执行迁移后才能保存昵称。未迁移时页面自动降级（昵称显示邮箱前缀），不影响登录和主流程。
+
 ## 四、运营方后台操作
 
 运营后台（`/admin`）新增菜单数据接口（当前需通过 API 调用，后续可加前端页面）：
