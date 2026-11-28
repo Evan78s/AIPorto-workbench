@@ -21,6 +21,17 @@ import (
 
 var usageRe = regexp.MustCompile(`"usage"\s*:\s*(\{[^}]*\})`)
 
+// upstreamPath 把网关对外的 /v1/... 映射到厂商实际路径。
+// 大多数 OpenAI 兼容厂商（如 DeepSeek）接受 /v1/chat/completions；
+// 火山方舟的端点是 /api/v3/chat/completions（不带 /v1），
+// 这类厂商在后台把协议设为 openai_compatible_no_v1 即可去掉 /v1 前缀。
+func upstreamPath(protocol, incoming string) string {
+	if protocol == "openai_compatible_no_v1" {
+		return strings.TrimPrefix(incoming, "/v1")
+	}
+	return incoming
+}
+
 type Handler struct {
 	authn    *auth.Authenticator
 	limiter  *quota.Limiter
@@ -115,7 +126,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c := candidates[i]
 		used = c
 
-		upReq, err := http.NewRequestWithContext(r.Context(), r.Method, c.Provider.BaseURL+r.URL.Path, bytes.NewReader(upstreamBody))
+		upReq, err := http.NewRequestWithContext(r.Context(), r.Method,
+			c.Provider.BaseURL+upstreamPath(c.Provider.Protocol, r.URL.Path), bytes.NewReader(upstreamBody))
 		if err != nil {
 			clear(c.PlainKey)
 			statusCode = 502

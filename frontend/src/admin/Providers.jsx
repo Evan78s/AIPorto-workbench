@@ -17,6 +17,8 @@ export default function Providers() {
   )
   const [msg, setMsg] = useState('')
   const [okMsg, setOkMsg] = useState('')
+  const [editing, setEditing] = useState('')
+  const [editForm, setEditForm] = useState({ base_url: '', protocol: 'openai_compatible' })
 
   function notify(err) {
     setOkMsg('')
@@ -52,6 +54,28 @@ export default function Providers() {
       if (keysFor === keyForm.provider_id) keys.reload()
       providers.reload()
       success(`密钥已加密入库，掩码 ${res.key_hint}（明文不会再显示）`)
+    } catch (err) { notify(err) }
+  }
+
+  function startEdit(p) {
+    setEditing(p.id)
+    setEditForm({ base_url: p.base_url, protocol: p.protocol })
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    const p = (providers.data || []).find((x) => x.id === editing)
+    if (!p) return
+    try {
+      // 后端 PUT 要求 base_url / protocol / status 三个字段都带上
+      await adminAPI.put(`/admin/providers/${editing}`, {
+        base_url: editForm.base_url,
+        protocol: editForm.protocol,
+        status: p.status,
+      })
+      setEditing('')
+      providers.reload()
+      success('厂商已更新，路由缓存最多 5 秒后生效')
     } catch (err) { notify(err) }
   }
 
@@ -107,6 +131,7 @@ export default function Providers() {
                 <td>{p.status}</td>
                 <td>
                   <button className="secondary" onClick={() => setKeysFor(keysFor === p.id ? '' : p.id)}>密钥</button>{' '}
+                  <button className="secondary" onClick={() => startEdit(p)}>编辑</button>{' '}
                   <button className="secondary" onClick={() => toggleProvider(p.id, p.status)}>{p.status === 'active' ? '停用' : '启用'}</button>{' '}
                   <button className="secondary" onClick={() => removeProvider(p.id, p.code)}>删除</button>
                 </td>
@@ -116,6 +141,21 @@ export default function Providers() {
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <div className="card">
+          <h2>编辑厂商 · {(providers.data || []).find((p) => p.id === editing)?.code || ''}</h2>
+          <form onSubmit={saveEdit} className="grid cols-3">
+            <input placeholder="API 根地址" value={editForm.base_url} onChange={(e) => setEditForm({ ...editForm, base_url: e.target.value })} required />
+            <select value={editForm.protocol} onChange={(e) => setEditForm({ ...editForm, protocol: e.target.value })}>
+              <option value="openai_compatible">openai_compatible（含 /v1，如 DeepSeek）</option>
+              <option value="openai_compatible_no_v1">openai_compatible_no_v1（不含 /v1，如火山方舟）</option>
+            </select>
+            <button>保存</button>
+            <button type="button" className="secondary" onClick={() => setEditing('')}>取消</button>
+          </form>
+        </div>
+      )}
 
       {keysFor && (
         <div className="card table-wrap">
@@ -143,9 +183,17 @@ export default function Providers() {
         <form onSubmit={addProvider} className="grid cols-3">
           <input placeholder="厂商代号，如 deepseek" value={provider.code} onChange={(e) => setProvider({ ...provider, code: e.target.value })} required />
           <input placeholder="API 根地址，如 https://api.deepseek.com" value={provider.base_url} onChange={(e) => setProvider({ ...provider, base_url: e.target.value })} required />
-          <input placeholder="协议" value={provider.protocol} onChange={(e) => setProvider({ ...provider, protocol: e.target.value })} />
+          <select value={provider.protocol} onChange={(e) => setProvider({ ...provider, protocol: e.target.value })}>
+            <option value="openai_compatible">openai_compatible（含 /v1，如 DeepSeek、OpenAI）</option>
+            <option value="openai_compatible_no_v1">openai_compatible_no_v1（不含 /v1，如火山方舟）</option>
+          </select>
           <button>添加厂商</button>
         </form>
+        <p className="muted">
+          常见填法：DeepSeek 地址填 <code>https://api.deepseek.com</code>，协议选 openai_compatible；
+          火山方舟地址填 <code>https://ark.cn-beijing.volces.com/api/v3</code>，协议选 openai_compatible_no_v1。
+          网关会在厂商地址后拼接请求路径，选错协议会导致上游 404。
+        </p>
       </div>
 
       <div className="card">

@@ -14,9 +14,10 @@ import (
 var ErrNoRoute = errors.New("no route for model")
 
 type Provider struct {
-	ID      string
-	Code    string
-	BaseURL string
+	ID       string
+	Code     string
+	BaseURL  string
+	Protocol string
 }
 
 type Candidate struct {
@@ -137,7 +138,7 @@ func (r *Router) routesFor(ctx context.Context, tenantID string) (map[string][]r
 
 	rows, err := r.pg.Query(ctx, `
 		SELECT r.model_alias, r.priority,
-		       p.id::text, p.code, p.base_url, r.model,
+		       p.id::text, p.code, p.base_url, p.protocol, r.model,
 		       k.id::text, k.encrypted_key, k.key_hint, k.weight
 		FROM routing_rules r
 		JOIN upstream_providers p ON p.id = r.provider_id AND p.status = 'active'
@@ -152,10 +153,10 @@ func (r *Router) routesFor(ctx context.Context, tenantID string) (map[string][]r
 
 	result := make(map[string][]route)
 	for rows.Next() {
-		var alias, providerID, code, baseURL, model, keyID, hint string
+		var alias, providerID, code, baseURL, protocol, model, keyID, hint string
 		var priority, weight int
 		var enc []byte
-		if err := rows.Scan(&alias, &priority, &providerID, &code, &baseURL, &model, &keyID, &enc, &hint, &weight); err != nil {
+		if err := rows.Scan(&alias, &priority, &providerID, &code, &baseURL, &protocol, &model, &keyID, &enc, &hint, &weight); err != nil {
 			return nil, err
 		}
 		idx := -1
@@ -167,7 +168,7 @@ func (r *Router) routesFor(ctx context.Context, tenantID string) (map[string][]r
 		}
 		if idx < 0 {
 			result[alias] = append(result[alias], route{
-				provider: Provider{ID: providerID, Code: code, BaseURL: baseURL},
+				provider: Provider{ID: providerID, Code: code, BaseURL: baseURL, Protocol: protocol},
 				model:    model,
 			})
 			idx = len(result[alias]) - 1

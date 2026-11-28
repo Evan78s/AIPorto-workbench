@@ -20,7 +20,7 @@
 | 路径 | 页面 | 说明 |
 | --- | --- | --- |
 | `/admin/tenants` | 租户与 key | 列表、创建租户并签发 key、签发额外 key、设置额度 |
-| `/admin/providers` | 厂商管理 | 新增/停用厂商、加密写入厂商 key（只显示掩码）、查看该厂商 key 列表 |
+| `/admin/providers` | 厂商管理 | 新增/停用厂商、加密写入厂商 key（只显示掩码）、查看该厂商 key 列表。协议见下方「厂商地址与协议」 |
 | `/admin/routes` | 模型路由 | 新增/编辑/启停/删除路由；全局路由与租户专属路由，别名→真实模型 |
 | `/admin/usage` | 用量看板 | 按天/按租户/按模型聚合，含 token 与费用，按天有曲线 |
 | `/admin/ledger` | 账本流水 | 手动充值、流水列表 |
@@ -33,6 +33,18 @@
 | `/console/billing` | 充值与账单 | 充值记录、用量 CSV / 账单 CSV 下载 |
 | `/console/snippets` | 调用示例 | curl / Python 示例，占位符不替换成真实 key |
 | （用户端独立站点 `frontend-user`） | 首页/注册/登录/套餐/订单 | 见 `USER-PORTAL.md`，独立域名 `user.aiporto.net`，端口 8082 |
+
+### 厂商地址与协议（重要）
+
+网关对外的 API 路径是 `/v1/chat/completions`，转发时会把完整路径拼到厂商「API 地址」后面。不同厂商的 OpenAI 兼容端点并不统一，所以协议字段决定要不要去掉 `/v1`：
+
+| 厂商 | API 地址（不要带尾部 `/`） | 协议 | 实际请求地址 |
+| --- | --- | --- | --- |
+| DeepSeek | `https://api.deepseek.com` | `openai_compatible` | `https://api.deepseek.com/v1/chat/completions` |
+| OpenAI | `https://api.openai.com/v1` | `openai_compatible` | `https://api.openai.com/v1/chat/completions` |
+| 火山方舟 | `https://ark.cn-beijing.volces.com/api/v3` | `openai_compatible_no_v1` | `https://ark.cn-beijing.volces.com/api/v3/chat/completions` |
+
+选错协议上游会返回 404；在厂商列表点「编辑」可直接改地址和协议，改完路由缓存最多 5 秒后生效。厂商地址不要填 `/chat/completions`，网关自己会拼路径。
 
 ### 后端接口清单
 
