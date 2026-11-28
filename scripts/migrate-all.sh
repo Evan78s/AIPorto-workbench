@@ -14,13 +14,21 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1090
-. "$ENV_FILE"
-set +a
+# 不 source .env：SMTP_FROM 等值含 < > 空格时 shell 会报 syntax error，
+# 导致迁移脚本在读取配置阶段就失败（旧版把错误吞掉，只显示"迁移失败"）。
+# 只用 grep 精确读取迁移需要的两个变量。
+env_get() {
+  local key="$1" default="$2" val
+  val="$(grep -m1 "^${key}=" "$ENV_FILE" 2>/dev/null || true)"
+  val="${val#*=}"
+  val="${val#\"}"; val="${val%\"}"
+  val="${val#\'}"; val="${val%\'}"
+  val="$(printf '%s' "$val" | tr -d '\r')"
+  printf '%s' "${val:-$default}"
+}
 
-PG_USER="${POSTGRES_USER:-aiporto}"
-PG_DB="${POSTGRES_DB:-aiporto}"
+PG_USER="$(env_get POSTGRES_USER aiporto)"
+PG_DB="$(env_get POSTGRES_DB aiporto)"
 
 echo "[migrate] 等待 postgres 就绪..."
 for i in $(seq 1 30); do

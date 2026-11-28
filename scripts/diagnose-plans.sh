@@ -2,8 +2,8 @@
 # 诊断「用户端看不到可售套餐」：只读，不修改任何数据。
 # 用法：cd /www/docker/aiporto && bash scripts/diagnose-plans.sh
 set -u
-cd /www/docker/aiporto || exit 1
-COMPOSE="docker compose -f /www/docker/aiporto/docker-compose.prod.yaml"
+cd "$(dirname "$0")/.." || exit 1
+COMPOSE="docker compose -f docker-compose.prod.yaml"
 
 echo "==================== 1. 代码版本 ===================="
 echo "本地 HEAD: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -16,11 +16,17 @@ $COMPOSE ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>&1 | head -20
 
 echo
 echo "==================== 3. 数据库里的套餐 ===================="
-set -a
-# shellcheck disable=SC1091
-. ./.env 2>/dev/null
-set +a
-$COMPOSE exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-aiporto}" \
+# 不 source .env：SMTP_FROM 含 < > 会触发 shell 语法错误，改用 grep 精确读取。
+env_get() {
+  local key="$1" default="$2" val
+  val="$(grep -m1 "^${key}=" ./.env 2>/dev/null || true)"
+  val="${val#*=}"; val="${val#\"}"; val="${val%\"}"; val="${val#\'}"; val="${val%\'}"
+  val="$(printf '%s' "$val" | tr -d '\r')"
+  printf '%s' "${val:-$default}"
+}
+PG_USER="$(env_get POSTGRES_USER postgres)"
+PG_DB="$(env_get POSTGRES_DB aiporto)"
+$COMPOSE exec -T postgres psql -U "$PG_USER" -d "$PG_DB" \
   -c "SELECT code, name, price_per_month, currency, created_at FROM plans ORDER BY created_at DESC;" 2>&1 | head -30
 echo "（空表 = 套餐没写进去；price_per_month=0 = 用户端故意不显示）"
 
