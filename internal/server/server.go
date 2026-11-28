@@ -23,6 +23,8 @@ const rootPage = `<!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwQzQ0N0MiLz48cGF0aCBkPSJNMzIgMTAgTDE1IDQzIEwzMiA0MyBaIiBmaWxsPSIjRkFDNzc1Ii8+PHBhdGggZD0iTTMyIDEwIEw0OSA0MyBMMzIgNDMgWiIgZmlsbD0iIzg1QjdFQiIvPjxwYXRoIGQ9Ik0zMiAxMCBMMzIgNDYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIyLjUiLz48cGF0aCBkPSJNMjMgMzIgTDQxIDMyIiBmaWxsPSJub25lIiBzdHJva2U9IiMwQzQ0N0MiIHN0cm9rZS13aWR0aD0iMi41Ii8+PHBhdGggZD0iTTEyIDQ3IFEzMiA1NiA1MiA0NyBMNDggNTMgUTMyIDYwIDE2IDUzIFoiIGZpbGw9IiNGRkZGRkYiLz48cGF0aCBkPSJNOCA1OCBRMTYgNTQgMjQgNTggVDQwIDU4IFQ1NiA1OCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjODVCN0VCIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+" />
+<meta name="theme-color" content="#0C447C" />
 <title>Aiporto 智港 · API 网关</title>
 <style>
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
