@@ -64,6 +64,17 @@ a { color: var(--accent); text-decoration: none; }
 .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 
+/* 套餐录入表单：每个字段都带标题 + 说明 + 示例，避免数字不知含义 */
+.plan-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-weight: 600; font-size: 13px; }
+.field-label em { font-style: normal; color: var(--danger); font-size: 11px; margin-left: 4px; }
+.field-hint { color: var(--muted); font-size: 11px; line-height: 1.45; min-height: 30px; }
+.field input { width: 100%; }
+.field-example { color: var(--muted); font-size: 11px; }
+.field-action { justify-content: flex-end; }
+.field-action button { width: 100%; padding: 10px; }
+
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .stat .label { color: var(--muted); font-size: 12px; }
 .stat .value { font-size: 24px; font-weight: 600; margin-top: 4px; }

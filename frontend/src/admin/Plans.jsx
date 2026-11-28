@@ -57,17 +57,55 @@ export default function Plans() {
       {msg && <div className={msg === '模型价格已保存' ? 'badge ok' : 'error'}>{msg}</div>}
       <div className="card">
         <h2>新增可售套餐</h2>
-        <form onSubmit={savePlan} className="grid cols-4">
-          <input placeholder="套餐 code，如 pro-monthly" value={plan.code} onChange={(e) => setPlan({ ...plan, code: e.target.value })} required />
-          <input placeholder="套餐名称，如 专业版" value={plan.name} onChange={(e) => setPlan({ ...plan, name: e.target.value })} required />
-          <input type="number" placeholder="每月 token" value={plan.monthly_token_limit} onChange={(e) => setPlan({ ...plan, monthly_token_limit: e.target.value })} required />
-          <input type="number" placeholder="RPM" value={plan.rpm_limit} onChange={(e) => setPlan({ ...plan, rpm_limit: e.target.value })} required />
-          <input type="number" placeholder="并发数" value={plan.concurrency_limit} onChange={(e) => setPlan({ ...plan, concurrency_limit: e.target.value })} required />
-          <input type="number" placeholder="每日 token" value={plan.daily_token_limit} onChange={(e) => setPlan({ ...plan, daily_token_limit: e.target.value })} required />
-          <input type="number" step="0.01" placeholder="月费（元）" value={plan.price_per_month} onChange={(e) => setPlan({ ...plan, price_per_month: e.target.value })} required />
-          <button>新增套餐</button>
+        <p className="muted">下面每个字段的含义都写在标题下方。照着示例填即可，填完点「新增套餐」。</p>
+        <form onSubmit={savePlan} className="plan-form">
+          <label className="field">
+            <span className="field-label">套餐 code <em>必填</em></span>
+            <span className="field-hint">唯一编号，只能用英文小写、数字和连字符</span>
+            <input placeholder="例如：pro-monthly" value={plan.code} onChange={(e) => setPlan({ ...plan, code: e.target.value })} required />
+          </label>
+          <label className="field">
+            <span className="field-label">套餐名称 <em>必填</em></span>
+            <span className="field-hint">用户在购买页看到的名字</span>
+            <input placeholder="例如：专业版" value={plan.name} onChange={(e) => setPlan({ ...plan, name: e.target.value })} required />
+          </label>
+          <label className="field">
+            <span className="field-label">每月 token 额度 <em>必填</em></span>
+            <span className="field-hint">一个月内累计可调用的最大 token 数，用完当月停用</span>
+            <input type="number" min="1" value={plan.monthly_token_limit} onChange={(e) => setPlan({ ...plan, monthly_token_limit: e.target.value })} required />
+            <span className="field-example">示例 1000000 = 100 万 token</span>
+          </label>
+          <label className="field">
+            <span className="field-label">RPM（每分钟请求数）<em>必填</em></span>
+            <span className="field-hint">同一用户每分钟最多发多少次请求，超了会返回 429</span>
+            <input type="number" min="1" value={plan.rpm_limit} onChange={(e) => setPlan({ ...plan, rpm_limit: e.target.value })} required />
+            <span className="field-example">示例 60 = 每秒 1 次</span>
+          </label>
+          <label className="field">
+            <span className="field-label">并发数 <em>必填</em></span>
+            <span className="field-hint">同一用户同时进行的请求上限，流式对话会占用</span>
+            <input type="number" min="1" value={plan.concurrency_limit} onChange={(e) => setPlan({ ...plan, concurrency_limit: e.target.value })} required />
+            <span className="field-example">示例 4 = 最多同时 4 路</span>
+          </label>
+          <label className="field">
+            <span className="field-label">每日 token 额度 <em>必填</em></span>
+            <span className="field-hint">单日最大 token 数，防止一天把月额度耗光</span>
+            <input type="number" min="1" value={plan.daily_token_limit} onChange={(e) => setPlan({ ...plan, daily_token_limit: e.target.value })} required />
+            <span className="field-example">示例 100000 = 每天 10 万 token</span>
+          </label>
+          <label className="field">
+            <span className="field-label">月费（元）<em>必填</em></span>
+            <span className="field-hint">用户每月支付的价格，必须大于 0 才会显示在购买页</span>
+            <input type="number" step="0.01" min="0.01" placeholder="例如：99" value={plan.price_per_month} onChange={(e) => setPlan({ ...plan, price_per_month: e.target.value })} required />
+            <span className="field-example">示例 99 = 每月 99 元</span>
+          </label>
+          <div className="field field-action">
+            <button type="submit">新增套餐</button>
+          </div>
         </form>
-        <p className="muted">月费必须大于 0 才会显示在用户端购买页。同一 code 重复添加会更新已有套餐。</p>
+        <div className="notice" style={{ marginTop: 14, marginBottom: 0 }}>
+          <strong>重要：</strong>月费必须大于 0，否则套餐不会出现在用户端购买页。同一个 code 重复提交会更新已有套餐，不会重复创建。
+        </div>
         {planMsg && <p className="error">{planMsg}</p>}
         {savedPlan && <p className="badge ok">套餐「{savedPlan}」已上架，用户端刷新后可见</p>}
       </div>
