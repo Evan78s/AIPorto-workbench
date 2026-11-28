@@ -16,6 +16,7 @@ import (
 
 	"aiporto/internal/config"
 	"aiporto/internal/util"
+	"aiporto/internal/version"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -106,6 +107,7 @@ func (a *API) Mount(r chi.Router, extra ...func(chi.Router)) {
 			r.Put("/tenants/{id}/quota", a.updateQuota)
 			r.Get("/plans", a.listPlans)
 			r.Post("/plans", a.createPlan)
+			r.Get("/system/version", a.systemVersion)
 			r.Get("/usage", a.adminUsage)
 			r.Get("/ledger", a.adminLedger)
 			r.Post("/recharge", a.recharge)
@@ -921,6 +923,15 @@ func (a *API) writeAgg(w http.ResponseWriter, r *http.Request, sql string, args 
 		out = append(out, x)
 	}
 	writeJSON(w, 200, out)
+}
+
+// systemVersion 返回当前构建版本与升级命令。只做只读展示，不执行任何系统操作。
+func (a *API) systemVersion(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, 200, map[string]any{
+		"version":       version.Get(),
+		"update_command": "cd /www/docker/aiporto && bash scripts/update.sh",
+		"install_dir":    "/www/docker/aiporto",
+	})
 }
 
 func rangeDates(r *http.Request) (time.Time, time.Time) {

@@ -26,38 +26,42 @@ nano .env
 
 后面的步骤照 `SERVER-INSTALL.md` 或 `BAOTA-INSTALL.md` 继续——装 Docker、起容器、配域名、录厂商 key，这些一点没变。
 
-## 日常更新（每次都按这个顺序）
+## 日常更新（推荐：一条命令）
+
+```bash
+cd /www/docker/aiporto && bash scripts/update.sh
+```
+
+这一条命令自动完成全部流程，并且每一步失败都会停下来处理：
+
+1. 检查前置条件（有未提交改动会拒绝升级，避免覆盖你的修改）
+2. **备份数据库并校验完整性**（备份失败直接中止，不带病升级）
+3. `git pull` 拉新代码
+4. **幂等补跑全部数据库迁移**（解决"已有库不会自动跑新迁移"这个最大的坑）
+5. 重建 `gateway / admin-ui / user-ui` 容器（`--force-recreate` 确保 `.env` 变更生效）
+6. 健康检查（网关 `/healthz` + 容器状态）
+7. 成功打印新版本号；任何一步失败自动回滚代码到旧版本
+
+升级日志在 `backups/update.log`，成功时会打印回滚命令。也可以登录后台「系统更新」页查看当前版本号、复制更新命令——页面本身不执行任何操作。
+
+> **注意**：新配置不会自动进你的 `.env`。每次升级后扫一眼 `.env.example` 有没有新增配置项，有就手动补进 `.env`，然后 `docker compose -f docker-compose.prod.yaml up -d --force-recreate gateway` 让新配置生效。
+
+<details>
+<summary>手动更新步骤（不用脚本时参考）</summary>
 
 ```bash
 cd /www/docker/aiporto
-
-# 1. 先备份，必做。数据库改坏了还能救回来。
-bash scripts/backup.sh
-
-# 2. 拉新代码
-git pull
-
-# 3. 看这次有没有新增数据库迁移文件
-git diff --name-only HEAD@{1}..HEAD -- migrations/
-
-# 4. 重建容器
-docker compose -f docker-compose.prod.yaml up -d --build
-
-# 5. 确认全部 healthy
-docker compose -f docker-compose.prod.yaml ps
+bash scripts/backup.sh                 # 1. 备份，必做
+git pull                               # 2. 拉新代码
+bash scripts/migrate-all.sh            # 3. 幂等补跑全部迁移
+docker compose -f docker-compose.prod.yaml \
+  up -d --build --force-recreate gateway admin-ui user-ui   # 4. 重建
+docker compose -f docker-compose.prod.yaml ps               # 5. 查 healthy
 ```
 
-**第 3 步是这个项目最容易翻车的地方。** 迁移 SQL 只在数据库**第一次初始化**时自动跑；已有数据卷不会自动补。如果第 3 步列出了新的 `migrations/00X.sql`，手动执行一次：
+迁移 SQL 只在数据库**第一次初始化**时自动跑；已有数据卷不会自动补。`scripts/migrate-all.sh` 会把 `migrations/` 下所有幂等 SQL 重新执行一遍（全部是 `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`，重复执行安全，不动已有数据）。
 
-```bash
-docker compose -f docker-compose.prod.yaml cp "migrations/00X.sql" "postgres:/tmp/00X.sql"
-docker compose -f docker-compose.prod.yaml exec -T postgres \
-  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/00X.sql'
-```
-
-把 `00X.sql` 换成实际文件名。看到执行完且没有 `ERROR` 就行。脚本只新增表/列/索引，不动已有数据。
-
-另外每次更新后扫一眼 `.env.example` 有没有新增配置项。新配置不会自动进你的 `.env`，要手动补；旧 `.env` 不会被 `git pull` 覆盖。
+</details>
 
 ## 升级到「用户自助注册/购买」版（本次新增）
 

@@ -61,7 +61,7 @@ aiporto/
 ├── frontend-user/               # React 用户端网站（Vite，独立端口 8082）
 ├── migrations/                  # 001 网关 / 002 控制台 / 003 审计+双因素 / 004 用户端
 ├── monitoring/                  # Prometheus 抓取与告警规则
-├── scripts/                     # 备份、恢复、恢复演练、脱敏自检、mock 上游、压测
+├── scripts/                     # update.sh 一键升级、migrate-all.sh 幂等迁移、备份/恢复/压测
 ├── docker-compose.yaml          # 本地开发：Postgres + Redis
 ├── docker-compose.prod.yaml     # 生产：全套六个服务
 ├── .env.example                 # 配置项模板（无真实值）

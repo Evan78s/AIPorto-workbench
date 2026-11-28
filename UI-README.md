@@ -25,7 +25,8 @@
 | `/admin/usage` | 用量看板 | 按天/按租户/按模型聚合，含 token 与费用，按天有曲线 |
 | `/admin/ledger` | 账本流水 | 手动充值、流水列表 |
 | `/admin/alerts` | 异常告警 | 余额低、单日用量 3 倍突增、上游 429 激增 |
-| `/admin/plans` | 套餐与价格 | 套餐列表、模型价格录入 |
+| `/admin/plans` | 套餐与价格 | 新增可售套餐（带字段说明）、套餐列表、模型价格录入 |
+| `/admin/system` | 系统更新 | 查看当前版本、复制一键升级命令、手动回滚说明（不执行系统操作） |
 | `/console/overview` | 本月总览 | 本月 token、剩余额度、费用、余额、30 天曲线 |
 | `/console/usage` | 用量曲线 | 按天曲线 + 按模型表格 |
 | `/console/keys` | API key | 列表、停用、重建（明文只显示一次） |
@@ -47,6 +48,7 @@
 | GET | `/api/admin/tenants/{id}/keys` | 租户的 key 列表（无哈希、无明文） |
 | PUT | `/api/admin/tenants/{id}/quota` | 设置套餐与限流额度 |
 | GET / POST | `/api/admin/plans` | 套餐列表 / 新建或更新套餐 |
+| GET | `/api/admin/system/version` | 当前构建版本（git commit）与升级命令，只读 |
 | GET | `/api/admin/usage?group=day\|tenant\|model&tenant_id=&days=` | 用量与费用聚合 |
 | GET | `/api/admin/ledger?tenant_id=` | 账本流水 |
 | POST | `/api/admin/recharge` | 手动充值（reference_id 幂等） |
