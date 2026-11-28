@@ -44,9 +44,10 @@ fi
 for file in "${MIGRATIONS[@]}"; do
   name="$(basename "$file")"
   echo "[migrate] 应用 $name ..."
+  # 不再吞掉 SQL 错误：真实报错会被 update.sh 写进 backups/update.log，便于定位
   if ! docker compose -f "$COMPOSE_FILE" exec -T postgres \
-      psql -v ON_ERROR_STOP=1 -U "$PG_USER" -d "$PG_DB" < "$file" >/dev/null 2>&1; then
-    echo "[migrate] $name 执行失败" >&2
+      psql -v ON_ERROR_STOP=1 -U "$PG_USER" -d "$PG_DB" -f - < "$file"; then
+    echo "[migrate] $name 执行失败（上方即为 PostgreSQL 真实报错）" >&2
     exit 1
   fi
 done
