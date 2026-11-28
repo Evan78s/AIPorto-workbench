@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -56,6 +57,11 @@ func hashCode(pepper []byte, email, purpose, code string) string {
 	m := hmac.New(sha256.New, pepper)
 	_, _ = m.Write([]byte(strings.ToLower(email) + ":" + purpose + ":" + code))
 	return hex.EncodeToString(m.Sum(nil))
+}
+
+// subtleCompare 常量时间比较两个哈希，避免通过响应时间推断正确验证码。
+func subtleCompare(a, b string) int {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b))
 }
 
 const sessionTTL = 7 * 24 * time.Hour

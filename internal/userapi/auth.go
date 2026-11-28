@@ -1,11 +1,14 @@
 package userapi
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"aiporto/internal/util"
+	"github.com/jackc/pgx/v5"
 )
 
 // register 第一步：校验邮箱未注册，生成验证码发邮件，验证码只存 HMAC 摘要。
@@ -59,9 +62,11 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.mailer.SendVerifyCode(email, code, codeTTL); err != nil {
+		log.Printf("[userapi] register: send code to %s failed: %v", email, err)
 		writeJSON(w, 502, map[string]string{"error": "send email failed: " + err.Error()})
 		return
 	}
+	log.Printf("[userapi] register: verification code sent to %s (expires in %s)", email, codeTTL)
 	writeJSON(w, 200, map[string]any{
 		"email": email,
 		"message": "验证码已发送，5 分钟内有效；验证时需再次提交密码",
@@ -99,15 +104,36 @@ func (a *API) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "password must be 8-128 characters"})
 		return
 	}
-	var tokenID string
+	// 先按邮箱取最新一条有效记录，再单独比对验证码：
+	// 这样输错时能定位到记录并递增 attempts，日志也能区分具体原因（验证码本身永不打印）。
+	var tokenID, storedHash string
 	var attempts int
 	err = tx.QueryRow(ctx, `
-		SELECT id::text, attempts FROM email_tokens
-		WHERE email=$1 AND purpose='register' AND code_hash=$2
-		  AND used_at IS NULL AND expires_at > now() AND attempts < 5
-		ORDER BY created_at DESC LIMIT 1`, email, hashCode(a.pepper, email, "register", code)).Scan(&tokenID, &attempts)
+		SELECT id::text, code_hash, attempts FROM email_tokens
+		WHERE email=$1 AND purpose='register' AND used_at IS NULL AND expires_at > now()
+		ORDER BY created_at DESC LIMIT 1`, email).Scan(&tokenID, &storedHash, &attempts)
+	if errors.Is(err, pgx.ErrNoRows) {
+		log.Printf("[userapi] verify: no active code for %s (expired, used, or never sent)", email)
+		writeJSON(w, 400, map[string]string{"error": "验证码已过期或已被使用，请重新发送验证码"})
+		return
+	}
 	if err != nil {
-		writeJSON(w, 400, map[string]string{"error": "wrong, expired code or too many attempts"})
+		log.Printf("[userapi] verify: db error for %s: %v", email, err)
+		writeJSON(w, 500, map[string]string{"error": "verify code failed"})
+		return
+	}
+	if attempts >= 5 {
+		log.Printf("[userapi] verify: too many attempts for %s", email)
+		writeJSON(w, 429, map[string]string{"error": "尝试次数过多，请重新发送验证码"})
+		return
+	}
+	if subtleCompare(storedHash, hashCode(a.pepper, email, "register", code)) != 1 {
+		// 输错：递增失败次数，5 次后锁定，防止暴力枚举 6 位验证码。
+		if _, err := tx.Exec(ctx, `UPDATE email_tokens SET attempts=attempts+1 WHERE id=$1`, tokenID); err != nil {
+			log.Printf("[userapi] verify: bump attempts failed for %s: %v", email, err)
+		}
+		log.Printf("[userapi] verify: wrong code for %s (attempt %d/5)", email, attempts+1)
+		writeJSON(w, 400, map[string]string{"error": "验证码错误，请检查后重试（5 次错误后将锁定）"})
 		return
 	}
 	pwHash, err := hashPassword(req.Password)
