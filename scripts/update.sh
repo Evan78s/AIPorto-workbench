@@ -61,11 +61,14 @@ fi
 NEW_COMMIT="$(git rev-parse HEAD)"
 NEW_SHORT="$(git rev-parse --short HEAD)"
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
-  log "已是最新版本（$NEW_SHORT），跳过重建"
-  log "========== 升级完成（无更新） =========="
-  exit 0
+  # 关键修复：即使代码已是最新，也必须继续重建。
+  # 场景：管理员先用 git reset / 其他方式同步了代码，再跑本脚本时 git pull 无新提交，
+  # 若在此 exit 0，容器仍运行旧镜像，新功能（后台菜单、配置）不会生效。
+  # 重建是幂等且安全的（前面已备份、后面有回滚与健康检查），因此总是执行。
+  log "代码已是最新版本（$NEW_SHORT）；继续执行迁移与重建，确保配置与镜像生效"
+else
+  log "新版本：$NEW_SHORT"
 fi
-log "新版本：$NEW_SHORT"
 
 # ---------- 3. 数据库迁移 ----------
 log "[3/6] 补跑数据库迁移..."
