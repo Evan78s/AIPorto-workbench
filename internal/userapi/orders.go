@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"aiporto/internal/payment"
 	"aiporto/internal/util"
@@ -120,6 +121,8 @@ type orderView struct {
 	CreatedAt string  `json:"created_at"`
 	PaidAt    string  `json:"paid_at"`
 	PayPayload string `json:"pay_payload,omitempty"`
+	// credentials_status: available=可领取 / taken=已领取 / missing=未生成，需运营方补发 / pending=未支付
+	CredentialsStatus string `json:"credentials_status"`
 }
 
 func (a *API) listOrders(w http.ResponseWriter, r *http.Request) {
@@ -150,17 +153,31 @@ func (a *API) listOrders(w http.ResponseWriter, r *http.Request) {
 func (a *API) getOrder(w http.ResponseWriter, r *http.Request) {
 	no := chi.URLParam(r, "id")
 	var v orderView
+	var hasPending bool
+	var takenAt *time.Time
 	err := a.pg.QueryRow(r.Context(), `
 		SELECT o.order_no, COALESCE(p.name,'-'), o.amount::float8, o.currency,
 		       o.status, o.payment_channel, to_char(o.created_at,'YYYY-MM-DD HH24:MI'),
-		       COALESCE(to_char(o.paid_at,'YYYY-MM-DD HH24:MI'),''), o.pay_payload
+		       COALESCE(to_char(o.paid_at,'YYYY-MM-DD HH24:MI'),''), o.pay_payload,
+		       (o.pending_credentials IS NOT NULL AND length(o.pending_credentials) > 0),
+		       o.credentials_taken_at
 		FROM orders o LEFT JOIN plans p ON p.id=o.plan_id
 		WHERE o.order_no=$1 AND o.user_id=$2`, no, userIDFrom(r)).
 		Scan(&v.OrderNo, &v.Plan, &v.Amount, &v.Currency, &v.Status,
-			&v.Channel, &v.CreatedAt, &v.PaidAt, &v.PayPayload)
+			&v.Channel, &v.CreatedAt, &v.PaidAt, &v.PayPayload, &hasPending, &takenAt)
 	if err != nil {
 		writeJSON(w, 404, map[string]string{"error": "order not found"})
 		return
+	}
+	switch {
+	case v.Status != "paid":
+		v.CredentialsStatus = "pending"
+	case hasPending:
+		v.CredentialsStatus = "available"
+	case takenAt != nil:
+		v.CredentialsStatus = "taken"
+	default:
+		v.CredentialsStatus = "missing" // 已支付但凭据从未生成，需运营方补发
 	}
 	writeJSON(w, 200, v)
 }

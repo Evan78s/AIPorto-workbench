@@ -20,6 +20,15 @@ export default function Orders() {
     } catch (err) { setMsg(err.message || String(err)) }
   }
 
+  async function reissue(no) {
+    if (!window.confirm(`为订单 ${no} 补发新的 API Key 和控制台令牌？\n\n用户此前的密钥若遗失，补发后会生成一对全新的凭据供用户重新领取。旧密钥仍然有效，可在「租户与 key」页停用它。`)) return
+    setMsg(''); setOkMsg('')
+    try {
+      await adminAPI.post(`/admin/user-orders/${encodeURIComponent(no)}/reissue`)
+      setOkMsg(`订单 ${no} 已补发密钥，通知用户重新登录订单详情页领取`)
+    } catch (err) { setMsg(err.message || String(err)) }
+  }
+
   return (
     <>
       <h1>用户订单</h1>
@@ -46,6 +55,9 @@ export default function Orders() {
                   {o.channel === 'manual' && o.status === 'pending' && (
                     <button onClick={() => confirm(o.order_no)}>确认到账并开通</button>
                   )}
+                  {o.status === 'paid' && (
+                    <button className="secondary" onClick={() => reissue(o.order_no)}>补发密钥</button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -59,6 +71,7 @@ export default function Orders() {
         <ul className="muted">
           <li><strong>支付宝 / 微信支付：</strong>支付回调验签通过后系统自动开通租户、订阅、API Key 和控制台令牌，无需人工操作。若订单一直「待支付」，检查回调地址与商户平台配置。</li>
           <li><strong>对公转账：</strong>用户下单后订单为「待支付」，你确认款项到账后点本页的「确认到账并开通」，系统立即开通并把明文凭据交给用户领取。</li>
+          <li><strong>用户反馈"领取密钥"报错（已领取/未生成）：</strong>明文只显示一次，领取过一次后无法再次查看。若用户遗失，点该订单的「补发密钥」生成一对全新的 API Key 和控制台令牌，用户重新登录订单详情页即可领取。旧密钥仍有效，可在「租户与 key」页停用以避免混淆。</li>
           <li><strong>手工给已有客户充值/改额度：</strong>到「账本流水」页操作；「租户与 key」页可调整额度。</li>
         </ul>
       </div>

@@ -97,6 +97,7 @@ func userIDFrom(r *http.Request) string {
 func (a *API) RegisterAdminRoutes(r chi.Router) {
 	r.Get("/user-orders", a.AdminListOrders)
 	r.Post("/user-orders/{id}/confirm", a.AdminConfirmManual)
+	r.Post("/user-orders/{id}/reissue", a.AdminReissueCredentials)
 }
 
 func decodeJSON(r *http.Request, dst any) error {

@@ -12,7 +12,6 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(fresh || null)
   const [error, setError] = useState('')
   const [credentials, setCredentials] = useState(null)
-  const [taken, setTaken] = useState(false)
 
   function refresh() {
     userAPI.order(no).then(setOrder).catch((e) => setError(e.message))
@@ -24,7 +23,7 @@ export default function OrderDetail() {
     try {
       const res = await userAPI.takeCredentials(no)
       setCredentials(res)
-      setTaken(true)
+      refresh()
     } catch (err) { setError(err.message) }
   }
 
@@ -89,19 +88,30 @@ export default function OrderDetail() {
       {order.status === 'paid' && (
         <div className="card">
           <h2>你的 API Key 与控制台令牌</h2>
-          {!credentials && !taken && (
-            <>
-              <p className="muted">点击下方按钮领取。明文只显示这一次，请立即保存到安全的地方。</p>
-              <button onClick={take}>领取密钥</button>
-            </>
-          )}
-          {taken && !credentials && <p className="error">密钥已被领取过，若遗失请重新购买套餐或联系运营方。</p>}
           {credentials && (
             <div className="credentials">
               <div className="kv"><span>API Key</span><code>{credentials.api_key_plaintext}</code></div>
               <div className="kv"><span>控制台令牌</span><code>{credentials.console_token_plaintext}</code></div>
               <p className="muted">{credentials.note}</p>
             </div>
+          )}
+          {!credentials && order.credentials_status === 'available' && (
+            <>
+              <p className="muted">点击下方按钮领取。明文只显示这一次，请立即保存到安全的地方。</p>
+              <button onClick={take}>领取密钥</button>
+            </>
+          )}
+          {!credentials && order.credentials_status === 'taken' && (
+            <p className="muted">密钥已被领取过。若遗失，请联系运营方补发；补发后会生成新的 Key，旧的仍然有效。</p>
+          )}
+          {!credentials && order.credentials_status === 'missing' && (
+            <p className="error">凭据尚未生成，请联系运营方在后台为此订单补发密钥。</p>
+          )}
+          {!credentials && (order.credentials_status === undefined || order.credentials_status === '') && (
+            <>
+              <p className="muted">点击下方按钮领取。明文只显示这一次，请立即保存到安全的地方。</p>
+              <button onClick={take}>领取密钥</button>
+            </>
           )}
         </div>
       )}
