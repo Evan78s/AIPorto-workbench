@@ -9,6 +9,8 @@ import Plans from './Plans'
 import Providers from './Providers'
 import RouteAdmin from './Routes'
 import System from './System'
+import Orders from './Orders'
+import Payments from './Payments'
 
 // 未通过双因素验证时，只渲染登录界面，不泄露任何后台页面/导航/数据。
 function LoginGate({ onSuccess }) {
@@ -85,6 +87,8 @@ function Shell({ onLogout }) {
           <NavLink to="/admin/ledger">账本流水</NavLink>
           <NavLink to="/admin/alerts">异常告警</NavLink>
           <NavLink to="/admin/plans">套餐与价格</NavLink>
+          <NavLink to="/admin/orders">用户订单</NavLink>
+          <NavLink to="/admin/payments">支付配置</NavLink>
           <NavLink to="/admin/system">系统更新</NavLink>
         </nav>
         <div className="switch">
@@ -129,6 +133,8 @@ export default function AdminApp() {
         <Route path="ledger" element={<Ledger />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="plans" element={<Plans />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="payments" element={<Payments />} />
         <Route path="system" element={<System />} />
       </Route>
     </Routes>

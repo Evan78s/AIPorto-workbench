@@ -1,8 +1,11 @@
 package consoleapi
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"aiporto/internal/util"
 	"github.com/go-chi/chi/v5"
@@ -151,6 +154,85 @@ func (a *API) deleteProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]string{"status": "archived"})
+}
+
+// fetchProviderModels 从厂商的 OpenAI 兼容 /models 端点拉取模型 ID，
+// 供后台「模型路由」下拉选择，避免手抄模型名出错。
+// 只用该厂商的一把 active key，且密钥不出本机：解密后直接放到请求头。
+func (a *API) fetchProviderModels(w http.ResponseWriter, r *http.Request) {
+	pid := chi.URLParam(r, "id")
+	var baseURL, protocol, encKey string
+	err := a.pg.QueryRow(r.Context(), `
+		SELECT p.base_url, p.protocol,
+		       COALESCE((SELECT k.encrypted_key::text FROM upstream_keys k
+		                 WHERE k.provider_id=p.id AND k.status='active'
+		                 ORDER BY k.priority, k.id LIMIT 1), '')
+		FROM upstream_providers p WHERE p.id=$1`, pid).Scan(&baseURL, &protocol, &encKey)
+	if err != nil {
+		writeJSON(w, 404, map[string]string{"error": "provider not found"})
+		return
+	}
+	if encKey == "" {
+		writeJSON(w, 400, map[string]string{"error": "该厂商还没有可用的密钥，请先在「密钥」里添加"})
+		return
+	}
+	plain, err := util.DecryptKey(a.masterKey, []byte(encKey))
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "key decrypt failed"})
+		return
+	}
+	defer clear(plain)
+
+	// 无 /v1 协议（火山方舟）用 baseURL+"/models"；普通协议用 baseURL+"/v1/models"。
+	path := "/v1/models"
+	if protocol == "openai_compatible_no_v1" {
+		path = "/models"
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+		strings.TrimRight(baseURL, "/")+path, nil)
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid base_url"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+string(plain))
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		writeJSON(w, 502, map[string]string{"error": "上游请求失败: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		writeJSON(w, 502, map[string]string{"error": "读取上游响应失败"})
+		return
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		writeJSON(w, 502, map[string]string{"error": "上游返回 " + resp.Status + "：" + string(body[:min(len(body), 300)])})
+		return
+	}
+	var parsed struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		writeJSON(w, 502, map[string]string{"error": "上游返回的 JSON 无法解析"})
+		return
+	}
+	models := []string{}
+	seen := map[string]bool{}
+	for _, d := range parsed.Data {
+		if d.ID != "" && !seen[d.ID] {
+			seen[d.ID] = true
+			models = append(models, d.ID)
+		}
+	}
+	if len(models) == 0 {
+		writeJSON(w, 502, map[string]string{"error": "上游没有返回任何模型，可能该厂商不支持 /models 接口"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"models": models})
 }
 
 type providerKeyView struct {

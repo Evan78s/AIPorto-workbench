@@ -76,6 +76,7 @@ type API struct {
 	adminPass  string
 	totpSecret string
 	lowBalance float64
+	cfg        config.Config // 只读配置：支付状态接口需要，私钥字段绝不序列化输出
 }
 
 func New(pg *pgxpool.Pool, cfg config.Config) *API {
@@ -87,6 +88,7 @@ func New(pg *pgxpool.Pool, cfg config.Config) *API {
 		adminPass:  cfg.AdminPassword,
 		totpSecret: cfg.AdminTOTPSecret,
 		lowBalance: cfg.AlertLowBalance,
+		cfg:        cfg,
 	}
 }
 
@@ -105,9 +107,14 @@ func (a *API) Mount(r chi.Router, extra ...func(chi.Router)) {
 			r.Post("/tenants/{id}/keys", a.issueKey)
 			r.Get("/tenants/{id}/keys", a.adminListKeys)
 			r.Put("/tenants/{id}/quota", a.updateQuota)
-			r.Get("/plans", a.listPlans)
-			r.Post("/plans", a.createPlan)
-			r.Get("/system/version", a.systemVersion)
+		r.Get("/plans", a.listPlans)
+		r.Post("/plans", a.createPlan)
+		r.Put("/plans/{id}", a.updatePlan)
+		r.Delete("/plans/{id}", a.deletePlan)
+		r.Get("/pricing", a.listPricing)
+		r.Delete("/pricing/{id}", a.deletePricing)
+		r.Get("/payment/status", a.paymentStatus)
+		r.Get("/system/version", a.systemVersion)
 			r.Get("/usage", a.adminUsage)
 			r.Get("/ledger", a.adminLedger)
 			r.Post("/recharge", a.recharge)
@@ -118,8 +125,9 @@ func (a *API) Mount(r chi.Router, extra ...func(chi.Router)) {
 			r.Post("/providers", a.createProvider)
 			r.Put("/providers/{id}", a.updateProvider)
 			r.Delete("/providers/{id}", a.deleteProvider)
-			r.Get("/providers/{id}/keys", a.listProviderKeys)
-			r.Post("/providers/{id}/keys", a.createProviderKey)
+		r.Get("/providers/{id}/keys", a.listProviderKeys)
+		r.Get("/providers/{id}/models", a.fetchProviderModels)
+		r.Post("/providers/{id}/keys", a.createProviderKey)
 			r.Delete("/provider-keys/{id}", a.deleteProviderKey)
 			r.Get("/routes", a.listRoutes)
 			r.Post("/routes", a.createRoute)
@@ -463,6 +471,63 @@ func (a *API) createPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, map[string]string{"status": "saved"})
 }
 
+// updatePlan 修改套餐（列表里的「编辑」按钮）。不改 code：code 是套餐唯一标识，改了会让已订阅租户失配。
+func (a *API) updatePlan(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req struct {
+		Name              string  `json:"name"`
+		MonthlyTokenLimit int64   `json:"monthly_token_limit"`
+		RpmLimit          int     `json:"rpm_limit"`
+		ConcurrencyLimit  int     `json:"concurrency_limit"`
+		DailyTokenLimit   int64   `json:"daily_token_limit"`
+		PricePerMonth     float64 `json:"price_per_month"`
+	}
+	if err := decodeJSON(r, &req); err != nil || req.Name == "" {
+		writeJSON(w, 400, map[string]string{"error": "name required"})
+		return
+	}
+	tag, err := a.pg.Exec(r.Context(), `
+		UPDATE plans SET name=$1, monthly_token_limit=$2, rpm_limit=$3, concurrency_limit=$4,
+		daily_token_limit=$5, price_per_month=$6 WHERE id=$7`,
+		req.Name, req.MonthlyTokenLimit, req.RpmLimit, req.ConcurrencyLimit,
+		req.DailyTokenLimit, req.PricePerMonth, id)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeJSON(w, 404, map[string]string{"error": "plan not found"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "updated"})
+}
+
+// deletePlan 删除套餐。已被订阅或订单引用的套餐不允许删除，避免历史订单/账单断裂。
+func (a *API) deletePlan(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var subs, orders int
+	if err := a.pg.QueryRow(r.Context(),
+		`SELECT (SELECT count(*)::int FROM subscriptions WHERE plan_id=$1),
+		        (SELECT count(*)::int FROM orders WHERE plan_id=$1)`, id).Scan(&subs, &orders); err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	if subs > 0 || orders > 0 {
+		writeJSON(w, 409, map[string]string{"error": fmt.Sprintf("套餐已被 %d 个订阅、%d 个订单引用，不能删除；可把月费改为 0 让它从购买页下架", subs, orders)})
+		return
+	}
+	tag, err := a.pg.Exec(r.Context(), `DELETE FROM plans WHERE id=$1`, id)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeJSON(w, 404, map[string]string{"error": "plan not found"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
 type aggRow struct {
 	Label    string  `json:"label"`
 	Tokens   int64   `json:"tokens"`
@@ -653,6 +718,72 @@ func (a *API) upsertPricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]string{"status": "saved"})
+}
+
+// listPricing 列出已配置的模型价格，供后台查看/编辑/删除。
+func (a *API) listPricing(w http.ResponseWriter, r *http.Request) {
+	rows, err := a.pg.Query(r.Context(), `
+		SELECT id::text, model, input_price_per_1m::float8, output_price_per_1m::float8, currency
+		FROM model_pricing ORDER BY model`)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	out := []map[string]any{}
+	for rows.Next() {
+		var id, model, currency string
+		var in, out1m float64
+		if err := rows.Scan(&id, &model, &in, &out1m, &currency); err != nil {
+			writeJSON(w, 500, map[string]string{"error": err.Error()})
+			return
+		}
+		out = append(out, map[string]any{"id": id, "model": model,
+			"input_price_per_1m": in, "output_price_per_1m": out1m, "currency": currency})
+	}
+	writeJSON(w, 200, out)
+}
+
+func (a *API) deletePricing(w http.ResponseWriter, r *http.Request) {
+	tag, err := a.pg.Exec(r.Context(), `DELETE FROM model_pricing WHERE id=$1`, chi.URLParam(r, "id"))
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": err.Error()})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeJSON(w, 404, map[string]string{"error": "pricing not found"})
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "deleted"})
+}
+
+// paymentStatus 只暴露渠道开关状态与回调地址，绝不返回任何私钥。
+func (a *API) paymentStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, map[string]any{
+		"alipay_enabled":  a.cfg.AlipayEnabled,
+		"alipay_app_id":   a.cfg.AlipayAppID,
+		"alipay_notify":   a.alipayNotifyURL(),
+		"wechat_enabled":  a.cfg.WechatEnabled,
+		"wechat_mch_id":   a.cfg.WechatMchID,
+		"wechat_notify":   a.wechatNotifyURL(),
+		"manual_enabled":  true,
+		"public_base_url": a.cfg.PublicBaseURL,
+		"user_portal_url": a.cfg.UserPortalURL,
+	})
+}
+
+func (a *API) alipayNotifyURL() string {
+	if a.cfg.AlipayNotifyURL != "" {
+		return a.cfg.AlipayNotifyURL
+	}
+	return strings.TrimRight(a.cfg.PublicBaseURL, "/") + "/api/user/pay/alipay/notify"
+}
+
+func (a *API) wechatNotifyURL() string {
+	if a.cfg.WechatNotifyURL != "" {
+		return a.cfg.WechatNotifyURL
+	}
+	return strings.TrimRight(a.cfg.PublicBaseURL, "/") + "/api/user/pay/wechat/notify"
 }
 
 // ---------------- 客户控制台 ----------------

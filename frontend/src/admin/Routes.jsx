@@ -12,6 +12,20 @@ export default function Routes() {
   const [editing, setEditing] = useState(null)
   const [msg, setMsg] = useState('')
   const [okMsg, setOkMsg] = useState('')
+  const [modelsFor, setModelsFor] = useState('')   // 当前拉取模型的厂商 id
+  const [modelOptions, setModelOptions] = useState([])
+  const [editingModels, setEditingModels] = useState([])
+
+  async function fetchModels(pid, target) {
+    if (!pid) return
+    try {
+      const res = await adminAPI.get(`/admin/providers/${pid}/models`)
+      const list = res.models || []
+      if (target === 'edit') setEditingModels(list)
+      else { setModelOptions(list); setModelsFor(pid) }
+      success(`已从厂商拉取 ${list.length} 个模型`)
+    } catch (err) { notify(err) }
+  }
 
   function notify(err) { setOkMsg(''); setMsg(err.message || String(err)) }
   function success(text) {
@@ -102,10 +116,17 @@ export default function Routes() {
         <div className="card">
           <h2>编辑路由 · <code>{editing.model_alias}</code></h2>
           <form onSubmit={saveEdit} className="grid cols-4">
-            <select value={editing.provider_id} onChange={(e) => setEditing({ ...editing, provider_id: e.target.value })} required>
+            <select value={editing.provider_id} onChange={(e) => {
+              setEditing({ ...editing, provider_id: e.target.value, model: '' })
+              setEditingModels([])
+            }} required>
               {(providers.data || []).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}
             </select>
-            <input placeholder="真实模型名" value={editing.model} onChange={(e) => setEditing({ ...editing, model: e.target.value })} required />
+            <button type="button" className="secondary" onClick={() => fetchModels(editing.provider_id, 'edit')}>拉取模型</button>
+            <input list="edit-model-list" placeholder="真实模型名（可从拉取结果选）" value={editing.model} onChange={(e) => setEditing({ ...editing, model: e.target.value })} required />
+            <datalist id="edit-model-list">
+              {editingModels.map((m) => <option key={m} value={m} />)}
+            </datalist>
             <input type="number" placeholder="优先级" value={editing.priority} onChange={(e) => setEditing({ ...editing, priority: e.target.value })} />
             <select value={editing.enabled ? '1' : '0'} onChange={(e) => setEditing({ ...editing, enabled: e.target.value === '1' })}>
               <option value="1">启用</option><option value="0">停用</option>
@@ -120,11 +141,18 @@ export default function Routes() {
         <h2>新增路由</h2>
         <form onSubmit={addRoute} className="grid cols-3">
           <input placeholder="客户用的别名，如 deepseek-chat" value={form.model_alias} onChange={(e) => setForm({ ...form, model_alias: e.target.value })} required />
-          <select value={form.provider_id} onChange={(e) => setForm({ ...form, provider_id: e.target.value })} required>
+          <select value={form.provider_id} onChange={(e) => {
+            setForm({ ...form, provider_id: e.target.value, model: '' })
+            setModelOptions([]); setModelsFor('')
+          }} required>
             <option value="">选择厂商</option>
             {(providers.data || []).filter((p) => p.status === 'active').map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}
           </select>
-          <input placeholder="厂商真实模型名，如 deepseek-chat" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} required />
+          <button type="button" className="secondary" onClick={() => fetchModels(form.provider_id, 'new')}>拉取模型</button>
+          <input list="new-model-list" placeholder="真实模型名（先拉模型再选）" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} required />
+          <datalist id="new-model-list">
+            {modelsFor === form.provider_id && modelOptions.map((m) => <option key={m} value={m} />)}
+          </datalist>
           <select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}>
             <option value="">全局（所有租户）</option>
             {(tenants.data || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -132,7 +160,7 @@ export default function Routes() {
           <input type="number" placeholder="优先级" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} />
           <button>添加路由</button>
         </form>
-        <p className="muted">同一别名可配多条路由指向不同厂商，网关按权重做负载均衡与失败转移。租户专属路由的优先级高于全局路由。</p>
+        <p className="muted">先选厂商再点「拉取模型」，网关会用该厂商已保存的密钥调用上游 <code>/models</code> 接口，把模型列表填进输入框的候选项，选中后即为真实模型名。部分厂商不提供该接口，可手工填写。同一别名可配多条路由指向不同厂商，网关按优先级做负载均衡与失败转移；租户专属路由优先于全局路由。</p>
       </div>
     </>
   )
