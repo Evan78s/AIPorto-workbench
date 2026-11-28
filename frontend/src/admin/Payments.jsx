@@ -15,13 +15,13 @@ export default function Payments() {
           <thead><tr><th>渠道</th><th>状态</th><th>商户号 / AppID</th><th>回调地址</th></tr></thead>
           <tbody>
             <tr>
-              <td>支付宝（电脑网站支付）</td>
+              <td><a href="https://open.alipay.com" target="_blank" rel="noopener noreferrer" className="doc-link">支付宝（电脑网站支付）↗</a></td>
               <td><span className={'badge ' + (status.data?.alipay_enabled ? 'active' : '')}>{status.data?.alipay_enabled ? '已启用' : '未启用'}</span></td>
               <td>{status.data?.alipay_app_id || '-'}</td>
               <td><code>{status.data?.alipay_notify || '-'}</code></td>
             </tr>
             <tr>
-              <td>微信支付（v3 Native）</td>
+              <td><a href="https://pay.weixin.qq.com" target="_blank" rel="noopener noreferrer" className="doc-link">微信支付（v3 Native）↗</a></td>
               <td><span className={'badge ' + (status.data?.wechat_enabled ? 'active' : '')}>{status.data?.wechat_enabled ? '已启用' : '未启用'}</span></td>
               <td>{status.data?.wechat_mch_id || '-'}</td>
               <td><code>{status.data?.wechat_notify || '-'}</code></td>
@@ -39,7 +39,7 @@ export default function Payments() {
       <div className="card">
         <h2>开启支付宝 / 微信支付</h2>
         <ol className="muted">
-          <li>按 <code>PAYMENT-SETUP.md</code> 在支付宝开放平台 / 微信商户平台申请应用与证书，拿到私钥和公钥。</li>
+          <li>按 <a href="https://github.com/Evan78s/AIPorto-workbench/blob/main/PAYMENT-SETUP.md" target="_blank" rel="noopener noreferrer" className="doc-link">PAYMENT-SETUP.md 支付配置教程 ↗</a> 在 <a href="https://open.alipay.com" target="_blank" rel="noopener noreferrer" className="doc-link">支付宝开放平台 ↗</a> / <a href="https://pay.weixin.qq.com" target="_blank" rel="noopener noreferrer" className="doc-link">微信商户平台 ↗</a> 申请应用与证书，拿到私钥和公钥。</li>
           <li>在服务器执行 <code>cd /www/docker/aiporto &amp;&amp; nano .env</code>，填入对应的 <code>ALIPAY_*</code> / <code>WECHAT_*</code> 配置，并把 <code>*_ENABLED</code> 设为 <code>true</code>。</li>
           <li>必须重建容器才会读取新环境变量：<code>docker compose -f docker-compose.prod.yaml up -d --force-recreate gateway user-ui</code>（<code>restart</code> 不 reload .env）。</li>
           <li>回到本页刷新，状态变为「已启用」；用户端购买页自动出现对应支付选项。</li>
